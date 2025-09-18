@@ -226,7 +226,7 @@ class AuthService {
       if (user != null) {
         debugPrint('User signed in: ${user.displayName} (${user.email})');
       } else {
-        debugPrint('User signed out lee');
+        debugPrint('User signed out');
       }
     });
   }

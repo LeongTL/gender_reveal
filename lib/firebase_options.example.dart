@@ -12,6 +12,9 @@ import 'package:flutter/foundation.dart'
 ///   options: DefaultFirebaseOptions.currentPlatform,
 /// );
 /// ```
+/// 
+/// IMPORTANT: Copy this file to 'firebase_options.dart' and replace 
+/// the placeholder values with your actual Firebase configuration.
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -39,48 +42,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDF2ggee7uPfDt-swIFxteHHGEqG-cc0nE',
-    appId: '1:63687376257:web:bff68791ddcde647d4fc80',
-    messagingSenderId: '63687376257',
-    projectId: 'gender-reveal-f0a3e',
-    authDomain: 'gender-reveal-f0a3e.firebaseapp.com',
-    storageBucket: 'gender-reveal-f0a3e.firebasestorage.app',
-    measurementId: 'G-221C5L35QC',
+    apiKey: 'your-web-api-key',
+    appId: 'your-web-app-id',
+    messagingSenderId: 'your-messaging-sender-id',
+    projectId: 'your-project-id',
+    authDomain: 'your-project-id.firebaseapp.com',
+    storageBucket: 'your-project-id.firebasestorage.app',
+    measurementId: 'your-measurement-id',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCgYzU7P6Bww1Xnid-NjAujLUinZweA-Ds',
-    appId: '1:63687376257:android:4e1142463c086f50d4fc80',
-    messagingSenderId: '63687376257',
-    projectId: 'gender-reveal-f0a3e',
-    storageBucket: 'gender-reveal-f0a3e.firebasestorage.app',
+    apiKey: 'your-android-api-key',
+    appId: 'your-android-app-id',
+    messagingSenderId: 'your-messaging-sender-id',
+    projectId: 'your-project-id',
+    storageBucket: 'your-project-id.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDYsiuVCrbJPpmHuvm0GhFGRgNNgqqpG-A',
-    appId: '1:63687376257:ios:df2a05939eb57c28d4fc80',
-    messagingSenderId: '63687376257',
-    projectId: 'gender-reveal-f0a3e',
-    storageBucket: 'gender-reveal-f0a3e.firebasestorage.app',
+    apiKey: 'your-ios-api-key',
+    appId: 'your-ios-app-id',
+    messagingSenderId: 'your-messaging-sender-id',
+    projectId: 'your-project-id',
+    storageBucket: 'your-project-id.firebasestorage.app',
     iosBundleId: 'com.example.genderReveal',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'your-macos-api-key',
-    appId: '1:your-app-id:ios:your-macos-app-id',
-    messagingSenderId: 'your-sender-id',
+    appId: 'your-macos-app-id',
+    messagingSenderId: 'your-messaging-sender-id',
     projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    storageBucket: 'your-project-id.firebasestorage.app',
     iosBundleId: 'com.example.genderReveal',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'your-windows-api-key',
-    appId: '1:your-app-id:web:your-windows-app-id',
-    messagingSenderId: 'your-sender-id',
+    appId: 'your-windows-app-id',
+    messagingSenderId: 'your-messaging-sender-id',
     projectId: 'your-project-id',
     authDomain: 'your-project-id.firebaseapp.com',
-    storageBucket: 'your-project-id.appspot.com',
+    storageBucket: 'your-project-id.firebasestorage.app',
     measurementId: 'your-measurement-id',
   );
 }

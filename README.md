@@ -17,6 +17,7 @@ A beautiful Flutter application for hosting real-time gender reveal parties with
 ```
 lib/
 ├── main.dart                          # App entry point with Firebase initialization
+├── firebase_options.dart             # Firebase configuration (not included in repo)
 ├── models/
 │   └── balloon.dart                   # Balloon data model with animation properties
 ├── widgets/
@@ -52,6 +53,21 @@ lib/
 - Flutter SDK (3.8.1 or higher)
 - Firebase project with Firestore enabled
 - Web browser for testing (Chrome recommended)
+
+### Firebase Configuration
+1. **Copy the template file**:
+   ```bash
+   cp lib/firebase_options.example.dart lib/firebase_options.dart
+   ```
+
+2. **Get your Firebase configuration**:
+   - Go to your Firebase project console
+   - Navigate to Project Settings > General > Your apps
+   - Copy the configuration for each platform you need
+
+3. **Update `lib/firebase_options.dart`** with your actual Firebase values:
+   - Replace all placeholder values with your actual Firebase configuration
+   - **Important**: Never commit this file to version control
 
 ### Installation
 
