@@ -50,6 +50,8 @@ app.*.map.json
 firebase-debug.log
 .firebase/
 lib/firebase_options.dart
+firestore.indexes.json
+firestore.rules
 
 # Logs
 firepit-log.txt
