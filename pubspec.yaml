@@ -42,6 +42,9 @@ dependencies:
   
   # Image picker for profile picture functionality
   image_picker: ^1.0.4
+  
+  # RxDart for stream operations
+  rxdart: ^0.27.7
 
 dev_dependencies:
   flutter_test:

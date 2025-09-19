@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math' as math;
 import '../widgets/balloon_background.dart';
+import '../widgets/firework_animation.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 
@@ -27,12 +29,23 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   bool isRevealed = false;
   
   /// Stream subscription for Firestore updates
-  late Stream<DocumentSnapshot> _firestoreStream;
+  late Stream<Map<String, dynamic>> _firestoreStream;
+
+  /// Last vote timestamp to prevent spam while allowing rapid voting
+  DateTime? _lastVoteTime;
+  static const Duration _voteCooldown = Duration(
+    milliseconds: 300,
+  ); // 300ms cooldown
+
+  /// Global key to access the firework overlay
+  final GlobalKey<FireworkOverlayState> _fireworkKey =
+      GlobalKey<FireworkOverlayState>();
   
   @override
   void initState() {
     super.initState();
     _setupFirestoreListener();
+    _ensureUserExists();
   }
   
   /// Sets up real-time listener for Firestore vote updates
@@ -41,6 +54,19 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// gender reveal document and updates the UI accordingly.
   void _setupFirestoreListener() {
     _firestoreStream = FirestoreService.getGenderRevealStream();
+  }
+
+  /// Ensures current user exists in Firestore users collection
+  ///
+  /// This method is called on initialization to make sure the user
+  /// is properly stored in the database for vote tracking.
+  Future<void> _ensureUserExists() async {
+    try {
+      await FirestoreService.ensureCurrentUserExists();
+    } catch (e) {
+      // Silently handle error - voting will still work with fallback username
+      debugPrint('Warning: Could not ensure user exists: $e');
+    }
   }
   
   /// Triggers the gender reveal by updating Firestore
@@ -86,27 +112,60 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       }
     }
   }
+
+  /// Casts a vote for boy prediction
+  Future<void> _voteForBoy() async {
+    print('_voteForBoy called'); // Debug
+
+    try {
+      print('Calling FirestoreService.voteForBoy()'); // Debug
+      await FirestoreService.voteForBoy();
+      print('Vote for boy successful'); // Debug
+      // Success feedback is now handled by firework animation instead of SnackBar
+    } catch (e) {
+      // Silent error handling - firework animation provides feedback regardless
+      print('Vote error (silent): $e');
+    }
+  }
+
+  /// Casts a vote for girl prediction
+  Future<void> _voteForGirl() async {
+    print('_voteForGirl called'); // Debug
+
+    try {
+      print('Calling FirestoreService.voteForGirl()'); // Debug
+      await FirestoreService.voteForGirl();
+      print('Vote for girl successful'); // Debug
+      // Success feedback is now handled by firework animation instead of SnackBar
+    } catch (e) {
+      // Silent error handling - firework animation provides feedback regardless
+      print('Vote error (silent): $e');
+    }
+  }
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: Stack(
-        children: [
-          // Animated balloon background
-          const Positioned.fill(
-            child: BalloonBackground(enableAnimation: true),
-          ),
-          
-          // Semi-transparent overlay for better text readability
-          _buildOverlay(),
-          
-          // Main content with voting results
-          _buildMainContent(),
-          
-          // Reset button in top-right corner (for testing)
-          _buildResetButton(),
-        ],
+    return FireworkOverlay(
+      key: _fireworkKey,
+      child: Scaffold(
+        appBar: _buildAppBar(),
+        body: Stack(
+          children: [
+            // Animated balloon background
+            const Positioned.fill(
+              child: BalloonBackground(enableAnimation: true),
+            ),
+
+            // Semi-transparent overlay for better text readability
+            _buildOverlay(),
+
+            // Main content with voting results
+            _buildMainContent(),
+
+            // Reset button in top-right corner (for testing)
+            _buildResetButton(),
+          ],
+        ),
       ),
     );
   }
@@ -402,17 +461,24 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Builds the main content area with voting results and controls
   Widget _buildMainContent() {
     return Center(
-      child: StreamBuilder<DocumentSnapshot>(
+      child: StreamBuilder<Map<String, dynamic>>(
         stream: _firestoreStream,
         builder: (context, snapshot) {
+          // Debug logging
+          print('StreamBuilder state: ${snapshot.connectionState}');
+          if (snapshot.hasError) {
+            print('StreamBuilder error: ${snapshot.error}');
+          }
+          if (snapshot.hasData) {
+            print('StreamBuilder data: ${snapshot.data}');
+          }
+          
           // Update local state from Firestore data
-          if (snapshot.hasData && snapshot.data!.exists) {
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            if (data != null) {
-              boyVotes = data['boyVotes'] ?? 0;
-              girlVotes = data['girlVotes'] ?? 0;
-              isRevealed = data['isRevealed'] ?? false;
-            }
+          if (snapshot.hasData) {
+            final data = snapshot.data!;
+            boyVotes = data['boyVotes'] ?? 0;
+            girlVotes = data['girlVotes'] ?? 0;
+            isRevealed = data['isRevealed'] ?? false;
           }
           
           return Column(
@@ -547,7 +613,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     );
   }
   
-  /// Builds the horizontal bar chart showing vote distribution
+  /// Builds the horizontal bar chart showing vote distribution (display only)
   Widget _buildVotingChart() {
     final total = boyVotes + girlVotes;
     
@@ -555,7 +621,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       width: 300,
       child: Row(
         children: [
-          // Boy votes bar (blue)
+          // Boy votes bar (blue) - display only
           Expanded(
             flex: total > 0 ? boyVotes : 1,
             child: Container(
@@ -580,7 +646,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             ),
           ),
           
-          // Girl votes bar (pink)
+          // Girl votes bar (pink) - display only
           Expanded(
             flex: total > 0 ? girlVotes : 1,
             child: Container(
@@ -608,36 +674,79 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
-  /// Builds the legend showing color coding for vote types
+  /// Builds the legend showing color coding for vote types (clickable for voting)
   Widget _buildLegend() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildLegendItem(Colors.blue, '男宝宝'),
+        _buildLegendItem(Colors.blue, '男宝宝', _voteForBoy),
         const SizedBox(width: 30),
-        _buildLegendItem(Colors.pink, '女宝宝'),
+        _buildLegendItem(Colors.pink, '女宝宝', _voteForGirl),
       ],
     );
   }
-  
-  /// Builds a single legend item with color square and label
-  Widget _buildLegendItem(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 20,
-          height: 20,
-          color: color,
+
+  /// Builds a clickable legend item that acts as a voting button
+  Widget _buildLegendItem(Color color, String label, VoidCallback onVote) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isRevealed
+            ? null
+            : () {
+                print('Legend item tapped: $label'); // Debug log
+                _handleVote(context, color, onVote);
+              },
+        onLongPress: isRevealed
+            ? null
+            : () {
+                print('Legend item long pressed: $label'); // Debug log
+                _handleVote(context, color, onVote);
+              },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 20, height: 20, color: color),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 10),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 18),
-        ),
-      ],
+      ),
     );
+  }
+
+  /// Handles voting with immediate response and async fireworks
+  void _handleVote(BuildContext context, Color color, VoidCallback onVote) {
+    final now = DateTime.now();
+
+    // Check cooldown to prevent spam while allowing rapid voting
+    if (_lastVoteTime != null &&
+        now.difference(_lastVoteTime!) < _voteCooldown) {
+      // Still show firework even during cooldown for visual feedback
+      _triggerFireworkAsync(this.context, color); // Use main widget context
+      return;
+    }
+
+    _lastVoteTime = now;
+
+    // Add haptic feedback for better user experience
+    HapticFeedback.lightImpact();
+
+    // Call the vote function IMMEDIATELY (non-blocking)
+    onVote();
+
+    // Trigger firework animation asynchronously (don't block voting)
+    _triggerFireworkAsync(this.context, color); // Use main widget context
+
+    // ALSO try a simple test firework at a fixed position
+    _triggerTestFirework(this.context, color); // Use main widget context
   }
   
   /// Builds the reveal button (shown before gender is revealed)
@@ -970,5 +1079,87 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         ),
       ],
     );
+  }
+  
+  /// Triggers firework animation asynchronously at the voting chart area
+  void _triggerFireworkAsync(BuildContext context, Color color) {
+    print('_triggerFireworkAsync called with color: $color'); // Debug
+
+    // Run firework animation in the next frame to avoid blocking the tap
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('PostFrameCallback executed'); // Debug
+
+      final overlay = _fireworkKey.currentState;
+      print('FireworkOverlay found: ${overlay != null}'); // Debug
+
+      if (overlay != null && mounted) {
+        // Get screen dimensions
+        final size = MediaQuery.of(context).size;
+        print('Screen size: ${size.width} x ${size.height}'); // Debug
+
+        // Calculate voting chart area (center of screen, above legend)
+        final chartCenterX = size.width / 2;
+        final chartCenterY = size.height * 0.4; // Approximate chart position
+
+        print('Chart center: ($chartCenterX, $chartCenterY)'); // Debug
+
+        // Add some randomness for multiple fireworks
+        final randomOffsetX = -50 + (math.Random().nextDouble() * 100);
+        final randomOffsetY = -30 + (math.Random().nextDouble() * 60);
+
+        final fireworkPosition = Offset(
+          chartCenterX + randomOffsetX,
+          chartCenterY + randomOffsetY,
+        );
+        print('Firework position: $fireworkPosition'); // Debug
+
+        // Trigger main firework at chart area
+        overlay.showFirework(fireworkPosition, color);
+        print('Main firework triggered'); // Debug
+
+        // Trigger additional smaller fireworks for more spectacular effect
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            overlay.showFirework(
+              Offset(
+                chartCenterX + randomOffsetX + 60,
+                chartCenterY + randomOffsetY - 30,
+              ),
+              color.withOpacity(0.7),
+            );
+            print('Second firework triggered'); // Debug
+          }
+        });
+
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            overlay.showFirework(
+              Offset(
+                chartCenterX + randomOffsetX - 60,
+                chartCenterY + randomOffsetY + 30,
+              ),
+              color.withOpacity(0.7),
+            );
+            print('Third firework triggered'); // Debug
+          }
+        });
+      } else {
+        print('Overlay is null or widget not mounted'); // Debug
+      }
+    });
+  }
+
+  /// Test firework at a simple fixed position to verify fireworks are working
+  void _triggerTestFirework(BuildContext context, Color color) {
+    print('_triggerTestFirework called'); // Debug
+
+    // Use GlobalKey to access the overlay
+    final overlay = _fireworkKey.currentState;
+    if (overlay != null) {
+      overlay.showFirework(const Offset(400, 300), color);
+      print('Test firework triggered via GlobalKey at center'); // Debug
+    } else {
+      print('FireworkOverlay not found for test firework'); // Debug
+    }
   }
 }

@@ -69,6 +69,19 @@ lib/
    - Replace all placeholder values with your actual Firebase configuration
    - **Important**: Never commit this file to version control
 
+4. **Deploy Firestore Security Rules**:
+   ```bash
+   # Set your Firebase project
+   firebase use your-project-id
+   
+   # Deploy the security rules
+   firebase deploy --only firestore:rules
+   ```
+   
+   The `firestore.rules` file allows:
+   - Authenticated users to read/write all collections
+   - Public read access to vote counts and reveal status
+
 ### Installation
 
 1. **Install dependencies**:
