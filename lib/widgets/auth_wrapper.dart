@@ -34,11 +34,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final User? user = snapshot.data;
         
         if (user != null) {
-          // User is signed in, show main app directly
+          // User is signed in, show main app
           return const GenderRevealScreen();
         } else {
-          // User is not signed in, show auth screen
-          return const AuthScreen();
+          // User is not signed in, show auth screen (always with gradient background)
+          return AuthScreen(key: UniqueKey());
         }
       },
     );
