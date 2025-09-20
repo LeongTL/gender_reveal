@@ -112,7 +112,6 @@ class GenderRevealApp extends StatelessWidget {
     return MaterialApp.router(
       // Router configuration
       routerConfig: _router,
-      
       // App configuration
       title: '宝宝性别揭晓派对', // Baby Gender Reveal Party in Chinese
       debugShowCheckedModeBanner: false, // Hide debug banner in release
