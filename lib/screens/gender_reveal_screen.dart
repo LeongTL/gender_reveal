@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:video_player/video_player.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:math' as math;
 import '../widgets/firework_animation.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 
-/// Main screen displaying real-time gender reveal voting results
-/// 
-/// This screen shows animated balloons in the background, real-time vote
-/// counts for boy vs girl predictions, and handles the gender reveal moment.
+/// Gender reveal results screen that displays only the voting chart and results
+/// This screen shows the final voting results without any voting functionality
 class GenderRevealScreen extends StatefulWidget {
   const GenderRevealScreen({super.key});
 
@@ -25,17 +24,15 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Current number of votes for girl prediction
   int girlVotes = 0;
   
+  /// Previous vote counts to detect changes for firework triggers
+  int _previousBoyVotes = 0;
+  int _previousGirlVotes = 0;
+  
   /// Whether the gender has been revealed
   bool isRevealed = false;
   
   /// Stream subscription for Firestore updates
   late Stream<Map<String, dynamic>> _firestoreStream;
-
-  /// Last vote timestamp to prevent spam while allowing rapid voting
-  DateTime? _lastVoteTime;
-  static const Duration _voteCooldown = Duration(
-    milliseconds: 300,
-  ); // 300ms cooldown
 
   /// Global key to access the firework overlay
   final GlobalKey<FireworkOverlayState> _fireworkKey =
@@ -51,24 +48,17 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     _ensureUserExists();
     _initializeVideoPlayer();
   }
-  
+
   /// Sets up real-time listener for Firestore vote updates
-  /// 
-  /// This method creates a stream that listens to changes in the
-  /// gender reveal document and updates the UI accordingly.
   void _setupFirestoreListener() {
     _firestoreStream = FirestoreService.getGenderRevealStream();
   }
 
   /// Ensures current user exists in Firestore users collection
-  ///
-  /// This method is called on initialization to make sure the user
-  /// is properly stored in the database for vote tracking.
   Future<void> _ensureUserExists() async {
     try {
       await FirestoreService.ensureCurrentUserExists();
     } catch (e) {
-      // Silently handle error - voting will still work with fallback username
       debugPrint('Warning: Could not ensure user exists: $e');
     }
   }
@@ -78,7 +68,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     _videoController = VideoPlayerController.asset('assets/video/video1.mp4')
       ..initialize()
           .then((_) {
-            // Ensure the first frame is shown and set to loop
             _videoController.setLooping(true);
             _videoController.play();
             if (mounted) {
@@ -89,16 +78,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             debugPrint('Video initialization error: $error');
           });
   }
-  
+
   /// Triggers the gender reveal by updating Firestore
-  /// 
-  /// This method calls the FirestoreService to set the reveal flag,
-  /// which will notify all connected devices to show the result.
   Future<void> _triggerReveal() async {
     try {
       await FirestoreService.triggerReveal();
     } catch (e) {
-      // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -109,7 +94,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       }
     }
   }
-  
+
   /// Resets the voting event (useful for testing or new events)
   Future<void> _resetEvent() async {
     try {
@@ -134,36 +119,43 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     }
   }
 
-  /// Casts a vote for boy prediction
-  Future<void> _voteForBoy() async {
-    print('_voteForBoy called'); // Debug
-
+  /// Handle user sign-out
+  Future<void> _signOut() async {
     try {
-      print('Calling FirestoreService.voteForBoy()'); // Debug
-      await FirestoreService.voteForBoy();
-      print('Vote for boy successful'); // Debug
-      // Success feedback is now handled by firework animation instead of SnackBar
+      await AuthService.signOut();
     } catch (e) {
-      // Silent error handling - firework animation provides feedback regardless
-      print('Vote error (silent): $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to sign out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  /// Casts a vote for girl prediction
-  Future<void> _voteForGirl() async {
-    print('_voteForGirl called'); // Debug
+  /// Triggers firework animation when vote count increases (same config as vote screen)
+  void _triggerFireworkForVoteIncrease(Color color) async {
+    // Add a small delay then trigger multiple fireworks (same as vote screen)
+    await Future.delayed(const Duration(milliseconds: 100));
 
-    try {
-      print('Calling FirestoreService.voteForGirl()'); // Debug
-      await FirestoreService.voteForGirl();
-      print('Vote for girl successful'); // Debug
-      // Success feedback is now handled by firework animation instead of SnackBar
-    } catch (e) {
-      // Silent error handling - firework animation provides feedback regardless
-      print('Vote error (silent): $e');
+    if (mounted && _fireworkKey.currentState != null) {
+      final screenSize = MediaQuery.of(context).size;
+      final random = math.Random();
+
+      // Trigger multiple fireworks at random positions (same config as vote screen)
+      for (int i = 0; i < 3; i++) {
+        await Future.delayed(Duration(milliseconds: i * 200));
+        if (mounted) {
+          final x = random.nextDouble() * screenSize.width;
+          final y = random.nextDouble() * screenSize.height * 0.7;
+          _fireworkKey.currentState?.showFirework(Offset(x, y), color);
+        }
+      }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return FireworkOverlay(
@@ -185,11 +177,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 ),
               ),
 
-            // Commented out balloon background
-            // const Positioned.fill(
-            //   child: BalloonBackground(enableAnimation: true),
-            // ),
-
             // Semi-transparent overlay for better text readability
             _buildOverlay(),
 
@@ -206,8 +193,14 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
-  /// Builds the app bar with user information and sign-out option
+
+  @override
+  void dispose() {
+    _videoController.dispose();
+    super.dispose();
+  }
+
+  /// Builds the app bar with user information and navigation
   PreferredSizeWidget _buildAppBar() {
     final User? user = AuthService.currentUser;
     final String displayName = AuthService.getUserDisplayName(user);
@@ -235,6 +228,34 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         ),
       ),
       actions: [
+        // Navigation back to vote page button
+        IconButton(
+          onPressed: () => context.go('/vote'),
+          icon: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.white.withValues(alpha: 0.9),
+              child: Icon(
+                Icons.how_to_vote,
+                color: Theme.of(context).primaryColor,
+                size: 22,
+              ),
+            ),
+          ),
+          tooltip: 'Back to voting',
+        ),
+        
         // User profile display with better visibility
         Container(
           margin: const EdgeInsets.only(right: 8),
@@ -468,24 +489,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ],
     );
   }
-  
-  /// Handle user sign-out
-  Future<void> _signOut() async {
-    try {
-      await AuthService.signOut();
-      // The AuthWrapper will automatically redirect to login screen
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to sign out: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-  
+
   /// Builds the semi-transparent overlay for better text visibility
   Widget _buildOverlay() {
     return Positioned.fill(
@@ -494,8 +498,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
-  /// Builds the main content area with voting results and controls
+
+  /// Builds the main content area with voting results
   Widget _buildMainContent() {
     return Center(
       child: StreamBuilder<Map<String, dynamic>>(
@@ -510,24 +514,37 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             print('StreamBuilder data: ${snapshot.data}');
           }
           
-          // Update local state from Firestore data
+          // Update local state from Firestore data and trigger fireworks for new votes
           if (snapshot.hasData) {
             final data = snapshot.data!;
-            boyVotes = data['boyVotes'] ?? 0;
-            girlVotes = data['girlVotes'] ?? 0;
-            isRevealed = data['isRevealed'] ?? false;
+            final newBoyVotes = data['boyVotes'] ?? 0;
+            final newGirlVotes = data['girlVotes'] ?? 0;
+            final newIsRevealed = data['isRevealed'] ?? false;
+            
+            // Detect vote increases and trigger fireworks
+            if (newBoyVotes > _previousBoyVotes) {
+              _triggerFireworkForVoteIncrease(const Color(0xFF6BB6FF)); // Blue for boy
+            }
+            if (newGirlVotes > _previousGirlVotes) {
+              _triggerFireworkForVoteIncrease(const Color(0xFFFF8FA3)); // Pink for girl
+            }
+            
+            // Update previous votes for next comparison
+            _previousBoyVotes = boyVotes;
+            _previousGirlVotes = girlVotes;
+            
+            // Update current votes and state
+            boyVotes = newBoyVotes;
+            girlVotes = newGirlVotes;
+            isRevealed = newIsRevealed;
           }
           
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildWelcomeMessage(),
-              const SizedBox(height: 20),
               _buildTitle(),
               const SizedBox(height: 10),
               _buildVotingChart(),
-              const SizedBox(height: 30),
-              _buildLegend(),
               const SizedBox(height: 40),
               if (!isRevealed) _buildRevealButton(),
               if (isRevealed) _buildRevealResult(),
@@ -538,99 +555,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
-  /// Builds welcome message with user name
-  Widget _buildWelcomeMessage() {
-    final User? user = AuthService.currentUser;
-    final String displayName = AuthService.getUserDisplayName(user);
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // User avatar
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            ),
-            child: Icon(
-              Icons.person,
-              color: Theme.of(context).primaryColor,
-              size: 18,
-            ),
-          ),
-          
-          const SizedBox(width: 12),
-          
-          // Welcome text
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '欢迎, ',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    displayName,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Theme.of(context).primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (AuthService.isAnonymous)
-                    Icon(
-                      Icons.visibility_off,
-                      size: 14,
-                      color: Colors.orange[600],
-                    )
-                  else
-                    Icon(
-                      Icons.verified,
-                      size: 14,
-                      color: Colors.green[600],
-                    ),
-                ],
-              ),
-              Text(
-                AuthService.isAnonymous 
-                    ? 'Welcome! • Guest Session'
-                    : 'Welcome! • Ready to vote',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  
   /// Builds the main title
   Widget _buildTitle() {
     return const Text(
@@ -649,7 +573,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Builds the clean voting chart with only essential elements
   Widget _buildVotingChart() {
     final total = boyVotes + girlVotes;
@@ -668,7 +592,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
     return Container(
       width: 350,
-      height: 320, // Fixed height to prevent overlap
+      height: 320,
       margin: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
         children: [
@@ -686,7 +610,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 // Boy votes - Blue elephant bar
                 _buildEnhancedAnimalBar(
                   height: boyBarHeight,
-                  color: const Color(0xFF6BB6FF), // Bright sky blue
+                  color: const Color(0xFF6BB6FF),
                   animal: _buildEmojiAnimal('🐘', const Color(0xFF6BB6FF)),
                   votes: boyVotes,
                   isLeft: true,
@@ -697,7 +621,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 // Girl votes - Pink bunny bar
                 _buildEnhancedAnimalBar(
                   height: girlBarHeight,
-                  color: const Color(0xFFFF8FA3), // Soft coral pink
+                  color: const Color(0xFFFF8FA3),
                   animal: _buildEmojiAnimal('🐰', const Color(0xFFFF8FA3)),
                   votes: girlVotes,
                   isLeft: false,
@@ -711,186 +635,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     );
   }
 
-  /// Builds the adorable baby animal-themed vote picker
-  Widget _buildLegend() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      child: Row(
-        children: [
-          // Boy vote button
-          Expanded(child: _buildBoyVoteButton()),
-          
-          const SizedBox(width: 16), // Simple spacing instead of fence
-          
-          // Girl vote button
-          Expanded(child: _buildGirlVoteButton()),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the boy vote button with elephant emoji
-  Widget _buildBoyVoteButton() {
-    return GestureDetector(
-      onTap: isRevealed
-          ? null
-          : () {
-              _handleVote(context, const Color(0xFF89CFF0), _voteForBoy);
-            },
-      child: TweenAnimationBuilder<double>(
-        duration: const Duration(milliseconds: 200),
-        tween: Tween(begin: 1.0, end: 1.0),
-        curve: Curves.elasticOut,
-        builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            child: Container(
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF89CFF0).withValues(alpha: 0.6),
-                    const Color(0xFF87CEEB).withValues(alpha: 0.5),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF89CFF0).withValues(alpha: 0.7),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF89CFF0).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Elephant emoji
-                  const Text(
-                    '🐘',
-                    style: TextStyle(fontSize: 36),
-                  ),
-                  const SizedBox(height: 8),
-                  // BOY text
-                  Text(
-                    'BOY',
-                    style: TextStyle(
-                      color: const Color(0xFF4682B4),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// Builds the girl vote button with bunny emoji
-  Widget _buildGirlVoteButton() {
-    return GestureDetector(
-      onTap: isRevealed
-          ? null
-          : () {
-              _handleVote(context, const Color(0xFFF4C2C2), _voteForGirl);
-            },
-      child: TweenAnimationBuilder<double>(
-        duration: const Duration(milliseconds: 200),
-        tween: Tween(begin: 1.0, end: 1.0),
-        curve: Curves.elasticOut,
-        builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            child: Container(
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFFF4C2C2).withValues(alpha: 0.6),
-                    const Color(0xFFFFB6C1).withValues(alpha: 0.5),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFFF4C2C2).withValues(alpha: 0.7),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF4C2C2).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Bunny emoji
-                  const Text(
-                    '🐰',
-                    style: TextStyle(fontSize: 36),
-                  ),
-                  const SizedBox(height: 8),
-                  // GIRL text
-                  Text(
-                    'GIRL',
-                    style: TextStyle(
-                      color: const Color(0xFFD87093),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// Handles voting with immediate response and async fireworks
-  void _handleVote(BuildContext context, Color color, VoidCallback onVote) {
-    final now = DateTime.now();
-
-    // Check cooldown to prevent spam while allowing rapid voting
-    if (_lastVoteTime != null &&
-        now.difference(_lastVoteTime!) < _voteCooldown) {
-      // Still show firework even during cooldown for visual feedback
-      _triggerFireworkAsync(this.context, color); // Use main widget context
-      return;
-    }
-
-    _lastVoteTime = now;
-
-    // Add haptic feedback for better user experience
-    HapticFeedback.lightImpact();
-
-    // Call the vote function IMMEDIATELY (non-blocking)
-    onVote();
-
-    // Trigger firework animation asynchronously (don't block voting)
-    _triggerFireworkAsync(this.context, color); // Use main widget context
-
-    // ALSO try a simple test firework at a fixed position
-    _triggerTestFirework(this.context, color); // Use main widget context
-  }
-  
   /// Builds the reveal button (shown before gender is revealed)
   Widget _buildRevealButton() {
     return ElevatedButton(
@@ -909,12 +653,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Builds the reveal result (shown after gender is revealed)
   Widget _buildRevealResult() {
-    final isboy = boyVotes > girlVotes;
-    final resultText = isboy ? '是男宝宝! 👶' : '是女宝宝! 👧';
-    final resultColor = isboy ? Colors.blue : Colors.pink;
+    final isBoy = boyVotes > girlVotes;
+    final resultText = isBoy ? '是男宝宝! 👶' : '是女宝宝! 👧';
+    final resultColor = isBoy ? Colors.blue : Colors.pink;
     
     return Text(
       resultText,
@@ -932,7 +676,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Builds error message widget
   Widget _buildErrorMessage(String error) {
     return Container(
@@ -948,7 +692,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Builds the reset button for testing purposes
   Widget _buildResetButton() {
     return Positioned(
@@ -962,7 +706,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Builds QR code widget positioned in bottom right corner
   Widget _buildQRCode() {
     return Positioned(
@@ -991,7 +735,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             height: 84,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              // Fallback if image fails to load
               return Container(
                 width: 84,
                 height: 84,
@@ -1008,7 +751,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Show detailed user profile dialog
   void _showUserProfile() {
     final User? user = AuthService.currentUser;
@@ -1268,7 +1011,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ],
     );
   }
-  
+
   /// Builds a cute emoji animal with enhanced styling and sparkle effects
   Widget _buildEmojiAnimal(String emoji, Color backgroundColor) {
     return Container(
@@ -1345,7 +1088,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Builds enhanced wooden sign board with better typography and design
   Widget _buildEnhancedWoodenSignBoard(int total) {
     return Container(
-      width: 500, // Match the width of individual vote bars
+      width: 500,
       height: 70,
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1690,93 +1433,5 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         );
       },
     );
-  }
-  
-  /// Triggers firework animation asynchronously at the voting chart area
-  void _triggerFireworkAsync(BuildContext context, Color color) {
-    print('_triggerFireworkAsync called with color: $color'); // Debug
-
-    // Run firework animation in the next frame to avoid blocking the tap
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('PostFrameCallback executed'); // Debug
-
-      final overlay = _fireworkKey.currentState;
-      print('FireworkOverlay found: ${overlay != null}'); // Debug
-
-      if (overlay != null && mounted) {
-        // Get screen dimensions
-        final size = MediaQuery.of(context).size;
-        print('Screen size: ${size.width} x ${size.height}'); // Debug
-
-        // Calculate voting chart area (center of screen, above legend)
-        final chartCenterX = size.width / 2;
-        final chartCenterY = size.height * 0.4; // Approximate chart position
-
-        print('Chart center: ($chartCenterX, $chartCenterY)'); // Debug
-
-        // Add some randomness for multiple fireworks
-        final randomOffsetX = -50 + (math.Random().nextDouble() * 100);
-        final randomOffsetY = -30 + (math.Random().nextDouble() * 60);
-
-        final fireworkPosition = Offset(
-          chartCenterX + randomOffsetX,
-          chartCenterY + randomOffsetY,
-        );
-        print('Firework position: $fireworkPosition'); // Debug
-
-        // Trigger main firework at chart area
-        overlay.showFirework(fireworkPosition, color);
-        print('Main firework triggered'); // Debug
-
-        // Trigger additional smaller fireworks for more spectacular effect
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            overlay.showFirework(
-              Offset(
-                chartCenterX + randomOffsetX + 60,
-                chartCenterY + randomOffsetY - 30,
-              ),
-              color.withOpacity(0.7),
-            );
-            print('Second firework triggered'); // Debug
-          }
-        });
-
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted) {
-            overlay.showFirework(
-              Offset(
-                chartCenterX + randomOffsetX - 60,
-                chartCenterY + randomOffsetY + 30,
-              ),
-              color.withOpacity(0.7),
-            );
-            print('Third firework triggered'); // Debug
-          }
-        });
-      } else {
-        print('Overlay is null or widget not mounted'); // Debug
-      }
-    });
-  }
-
-  /// Test firework at a simple fixed position to verify fireworks are working
-  void _triggerTestFirework(BuildContext context, Color color) {
-    print('_triggerTestFirework called'); // Debug
-
-    // Use GlobalKey to access the overlay
-    final overlay = _fireworkKey.currentState;
-    if (overlay != null) {
-      overlay.showFirework(const Offset(400, 300), color);
-      print('Test firework triggered via GlobalKey at center'); // Debug
-    } else {
-      print('FireworkOverlay not found for test firework'); // Debug
-    }
-  }
-  
-  @override
-  void dispose() {
-    _videoController.dispose();
-    super.dispose();
   }
 }

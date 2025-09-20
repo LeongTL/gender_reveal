@@ -48,6 +48,9 @@ dependencies:
   
   # Video player for background video
   video_player: ^2.8.1
+  
+  # Router for URL-based navigation
+  go_router: ^14.5.0
 
 dev_dependencies:
   flutter_test:

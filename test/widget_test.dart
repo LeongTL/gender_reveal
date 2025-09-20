@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gender_reveal/main.dart';
-import 'package:gender_reveal/widgets/balloon_background.dart';
 
 /// Test-specific wrapper that creates a demo screen without animations
 Widget createTestApp() {
@@ -17,9 +16,21 @@ Widget createTestApp() {
     home: Scaffold(
       body: Stack(
         children: [
-          // Static balloon background (no animation for testing)
-          const Positioned.fill(
-            child: BalloonBackground(enableAnimation: false),
+          // Gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF6B73FF),
+                    Color(0xFF9A4FFF),
+                    Color(0xFFFF6B9D),
+                  ],
+                ),
+              ),
+            ),
           ),
           // Semi-transparent overlay
           Positioned.fill(
@@ -156,25 +167,9 @@ void main() {
     expect(find.text('7'), findsOneWidget);
   });
 
-  testWidgets('Balloon background renders without animation', (WidgetTester tester) async {
-    // Test just the balloon background component
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: BalloonBackground(enableAnimation: false),
-        ),
-      ),
-    );
-
-    await tester.pump();
-
-    // Verify that at least one CustomPaint widget is present
-    expect(find.byType(CustomPaint), findsAtLeastNWidgets(1));
-  });
-
   testWidgets('Main app can be instantiated', (WidgetTester tester) async {
     // Test that the main app widget can be created without errors
-    const app = GenderRevealApp(useFirebase: false);
+    final app = GenderRevealApp(useFirebase: false);
     
     // Just verify it can be built without throwing
     expect(app, isA<Widget>());

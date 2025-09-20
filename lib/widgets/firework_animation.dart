@@ -18,14 +18,20 @@ class FireworkParticle {
     
     // Random velocity for explosion effect with more variation
     final angle = math.Random().nextDouble() * 2 * math.pi;
-    final speed = 80 + math.Random().nextDouble() * 120; // Increased speed range
+    final speed =
+        120 +
+        math.Random().nextDouble() *
+            180; // Increased speed range for bigger explosion
     vx = math.cos(angle) * speed;
     vy = math.sin(angle) * speed;
     
     color = particleColor;
     life = 1.0;
-    decay = 0.02 + math.Random().nextDouble() * 0.03; // Slightly faster decay for quicker animations
-    size = 1.5 + math.Random().nextDouble() * 5; // Larger size range
+    decay =
+        0.015 +
+        math.Random().nextDouble() *
+            0.025; // Slightly slower decay for longer visible effect
+    size = 2.5 + math.Random().nextDouble() * 8; // Much larger size range
   }
 
   void update() {
@@ -57,16 +63,16 @@ class FireworkPainter extends CustomPainter {
         final opacity = particle.life;
         final particleSize = particle.size * particle.life;
         
-        // Draw glow effect
-        paint.color = particle.color.withOpacity(opacity * 0.3);
+        // Draw glow effect - make it bigger
+        paint.color = particle.color.withValues(alpha: opacity * 0.3);
         canvas.drawCircle(
           Offset(particle.x, particle.y),
-          particleSize * 2,
+          particleSize * 3, // Increased glow size
           paint,
         );
         
         // Draw main particle
-        paint.color = particle.color.withOpacity(opacity);
+        paint.color = particle.color.withValues(alpha: opacity);
         canvas.drawCircle(
           Offset(particle.x, particle.y),
           particleSize,
@@ -74,10 +80,10 @@ class FireworkPainter extends CustomPainter {
         );
         
         // Draw bright center
-        paint.color = Colors.white.withOpacity(opacity * 0.8);
+        paint.color = Colors.white.withValues(alpha: opacity * 0.8);
         canvas.drawCircle(
           Offset(particle.x, particle.y),
-          particleSize * 0.3,
+          particleSize * 0.4, // Slightly larger bright center
           paint,
         );
       }
@@ -140,7 +146,8 @@ class _FireworkAnimationState extends State<FireworkAnimation>
 
   void _createParticles() {
     final random = math.Random();
-    const particleCount = 80; // Increased particle count for more spectacular effect
+    const particleCount =
+        120; // Increased particle count for more spectacular effect
 
     for (int i = 0; i < particleCount; i++) {
       // Create particles with more vibrant color variations
