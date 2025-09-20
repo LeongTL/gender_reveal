@@ -524,9 +524,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
               _buildWelcomeMessage(),
               const SizedBox(height: 20),
               _buildTitle(),
-              const SizedBox(height: 40),
+              const SizedBox(height: 10),
               _buildVotingChart(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
               _buildLegend(),
               const SizedBox(height: 40),
               if (!isRevealed) _buildRevealButton(),
@@ -650,111 +650,216 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     );
   }
   
-  /// Builds the horizontal bar chart showing vote distribution (display only)
+  /// Builds the clean voting chart with only essential elements
   Widget _buildVotingChart() {
     final total = boyVotes + girlVotes;
+    final maxVotes = math.max(boyVotes, girlVotes);
+    final baseHeight = 60.0;
+    final maxBarHeight = 180.0;
     
-    return SizedBox(
-      width: 300,
-      child: Row(
+    // Calculate bar heights with minimum height for visibility
+    final boyBarHeight = total > 0
+        ? baseHeight + (boyVotes / (maxVotes > 0 ? maxVotes : 1)) * maxBarHeight
+        : baseHeight;
+    final girlBarHeight = total > 0
+        ? baseHeight +
+              (girlVotes / (maxVotes > 0 ? maxVotes : 1)) * maxBarHeight
+        : baseHeight;
+
+    return Container(
+      width: 350,
+      height: 320, // Fixed height to prevent overlap
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
         children: [
-          // Boy votes bar (blue) - display only
+          // Total votes display at the top
+          _buildEnhancedWoodenSignBoard(total),
+
+          const SizedBox(height: 30),
+
+          // Vote bars at the bottom
           Expanded(
-            flex: total > 0 ? boyVotes : 1,
-            child: Container(
-              height: 50,
-              decoration: const BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  bottomLeft: Radius.circular(10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Boy votes - Blue elephant bar
+                _buildEnhancedAnimalBar(
+                  height: boyBarHeight,
+                  color: const Color(0xFF6BB6FF), // Bright sky blue
+                  animal: _buildEmojiAnimal('🐘', const Color(0xFF6BB6FF)),
+                  votes: boyVotes,
+                  isLeft: true,
+                  maxHeight: maxBarHeight + baseHeight,
                 ),
-              ),
-              child: Center(
-                child: Text(
-                  '$boyVotes',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                
+                const SizedBox(width: 100),
+                // Girl votes - Pink bunny bar
+                _buildEnhancedAnimalBar(
+                  height: girlBarHeight,
+                  color: const Color(0xFFFF8FA3), // Soft coral pink
+                  animal: _buildEmojiAnimal('🐰', const Color(0xFFFF8FA3)),
+                  votes: girlVotes,
+                  isLeft: false,
+                  maxHeight: maxBarHeight + baseHeight,
                 ),
-              ),
-            ),
-          ),
-          
-          // Girl votes bar (pink) - display only
-          Expanded(
-            flex: total > 0 ? girlVotes : 1,
-            child: Container(
-              height: 50,
-              decoration: const BoxDecoration(
-                color: Colors.pink,
-                borderRadius: BorderRadius.only(
-                  topRight: Radius.circular(10),
-                  bottomRight: Radius.circular(10),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  '$girlVotes',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
-  /// Builds the legend showing color coding for vote types (clickable for voting)
+
+  /// Builds the adorable baby animal-themed vote picker
   Widget _buildLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildLegendItem(Colors.blue, '男宝宝', _voteForBoy),
-        const SizedBox(width: 30),
-        _buildLegendItem(Colors.pink, '女宝宝', _voteForGirl),
-      ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      child: Row(
+        children: [
+          // Boy vote button
+          Expanded(child: _buildBoyVoteButton()),
+          
+          const SizedBox(width: 16), // Simple spacing instead of fence
+          
+          // Girl vote button
+          Expanded(child: _buildGirlVoteButton()),
+        ],
+      ),
     );
   }
 
-  /// Builds a clickable legend item that acts as a voting button
-  Widget _buildLegendItem(Color color, String label, VoidCallback onVote) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isRevealed
-            ? null
-            : () {
-                print('Legend item tapped: $label'); // Debug log
-                _handleVote(context, color, onVote);
-              },
-        onLongPress: isRevealed
-            ? null
-            : () {
-                print('Legend item long pressed: $label'); // Debug log
-                _handleVote(context, color, onVote);
-              },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 20, height: 20, color: color),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
+  /// Builds the boy vote button with elephant emoji
+  Widget _buildBoyVoteButton() {
+    return GestureDetector(
+      onTap: isRevealed
+          ? null
+          : () {
+              _handleVote(context, const Color(0xFF89CFF0), _voteForBoy);
+            },
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 200),
+        tween: Tween(begin: 1.0, end: 1.0),
+        curve: Curves.elasticOut,
+        builder: (context, scale, child) {
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF89CFF0).withValues(alpha: 0.2),
+                    const Color(0xFF87CEEB).withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF89CFF0).withValues(alpha: 0.3),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF89CFF0).withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Elephant emoji
+                  const Text(
+                    '🐘',
+                    style: TextStyle(fontSize: 36),
+                  ),
+                  const SizedBox(height: 8),
+                  // BOY text
+                  Text(
+                    'BOY',
+                    style: TextStyle(
+                      color: const Color(0xFF4682B4),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Builds the girl vote button with bunny emoji
+  Widget _buildGirlVoteButton() {
+    return GestureDetector(
+      onTap: isRevealed
+          ? null
+          : () {
+              _handleVote(context, const Color(0xFFF4C2C2), _voteForGirl);
+            },
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 200),
+        tween: Tween(begin: 1.0, end: 1.0),
+        curve: Curves.elasticOut,
+        builder: (context, scale, child) {
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFFF4C2C2).withValues(alpha: 0.2),
+                    const Color(0xFFFFB6C1).withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFF4C2C2).withValues(alpha: 0.3),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF4C2C2).withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Bunny emoji
+                  const Text(
+                    '🐰',
+                    style: TextStyle(fontSize: 36),
+                  ),
+                  const SizedBox(height: 8),
+                  // GIRL text
+                  Text(
+                    'GIRL',
+                    style: TextStyle(
+                      color: const Color(0xFFD87093),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1161,6 +1266,429 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
           ),
         ),
       ],
+    );
+  }
+  
+  /// Builds a cute emoji animal with enhanced styling and sparkle effects
+  Widget _buildEmojiAnimal(String emoji, Color backgroundColor) {
+    return Container(
+      width: 80,
+      height: 60,
+      decoration: BoxDecoration(
+        color: backgroundColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: backgroundColor.withValues(alpha: 0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: backgroundColor.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.5),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Main emoji
+          Center(
+            child: Text(
+              emoji,
+              style: const TextStyle(fontSize: 36, height: 1.0),
+            ),
+          ),
+          // Sparkle effects around the emoji
+          Positioned(
+            top: 8,
+            right: 12,
+            child: Text(
+              '✨',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.yellow.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 10,
+            left: 10,
+            child: Text(
+              '💫',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.blue.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            left: 8,
+            child: Text(
+              '⭐',
+              style: TextStyle(
+                fontSize: 8,
+                color: Colors.orange.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds enhanced wooden sign board with better typography and design
+  Widget _buildEnhancedWoodenSignBoard(int total) {
+    return Container(
+      width: 500, // Match the width of individual vote bars
+      height: 70,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFDEB887), // Burlywood
+            const Color(0xFFCD853F), // Peru
+          ],
+        ),
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(15),
+          topRight: const Radius.circular(12),
+          bottomLeft: const Radius.circular(18),
+          bottomRight: const Radius.circular(14),
+        ),
+        border: Border.all(
+          color: const Color(0xFF8B4513), // Saddle brown
+          width: 3.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(3, 3),
+          ),
+          BoxShadow(
+            color: const Color(0xFFFFF8DC).withValues(alpha: 0.4),
+            blurRadius: 2,
+            offset: const Offset(-1, -1),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Enhanced wood grain pattern
+          Positioned(
+            top: 18,
+            left: 25,
+            right: 25,
+            child: Container(
+              height: 1.5,
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B4513).withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 38,
+            left: 30,
+            right: 20,
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B4513).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 50,
+            left: 22,
+            right: 28,
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B4513).withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+
+          // Main text content with enhanced styling
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '总票数',
+                  style: TextStyle(
+                    color: const Color(0xFF5D4E37), // Dark brown
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'monospace',
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: const Color(0xFFFFF8DC).withValues(alpha: 0.6),
+                        blurRadius: 1,
+                        offset: const Offset(1, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8DC).withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$total',
+                    style: TextStyle(
+                      color: const Color(0xFF5D4E37), // Dark brown
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'monospace',
+                      letterSpacing: 1,
+                      shadows: [
+                        Shadow(
+                          color: const Color(0xFFFFF8DC).withValues(alpha: 0.8),
+                          blurRadius: 2,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Enhanced nail details with shadows - corners only
+          ...List.generate(4, (index) {
+            late double top, bottom, left, right;
+            switch (index) {
+              case 0:
+                top = 10;
+                left = 18;
+                bottom = double.nan;
+                right = double.nan;
+                break;
+              case 1:
+                top = 10;
+                right = 18;
+                bottom = double.nan;
+                left = double.nan;
+                break;
+              case 2:
+                bottom = 10;
+                left = 18;
+                top = double.nan;
+                right = double.nan;
+                break;
+              case 3:
+                bottom = 10;
+                right = 18;
+                top = double.nan;
+                left = double.nan;
+                break;
+            }
+
+            return Positioned(
+              top: top.isNaN ? null : top,
+              bottom: bottom.isNaN ? null : bottom,
+              left: left.isNaN ? null : left,
+              right: right.isNaN ? null : right,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [const Color(0xFF696969), const Color(0xFF2F2F2F)],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 2,
+                      offset: const Offset(1, 1),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Builds an enhanced animated animal bar with gentle wobble animation
+  Widget _buildEnhancedAnimalBar({
+    required double height,
+    required Color color,
+    required Widget animal,
+    required int votes,
+    required bool isLeft,
+    required double maxHeight,
+  }) {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 1200),
+      tween: Tween(begin: 50.0, end: height),
+      curve: Curves.elasticOut,
+      builder: (context, animatedHeight, child) {
+        return Container(
+          width: 80,
+          height: maxHeight,
+          child: Stack(
+            children: [
+              // Enhanced bar with hand-drawn irregular shape and gentle wobble
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 1500),
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  curve: Curves.easeOutBack,
+                  builder: (context, wobbleValue, child) {
+                    return Transform.translate(
+                      offset: Offset(
+                        math.sin(wobbleValue * math.pi * 2) * 1,
+                        0,
+                      ),
+                      child: Container(
+                        height: animatedHeight - 45,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              color.withValues(alpha: 0.9),
+                              color.withValues(alpha: 0.7),
+                              color,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(isLeft ? 25 : 18),
+                            topRight: Radius.circular(isLeft ? 18 : 25),
+                            bottomLeft: Radius.circular(isLeft ? 12 : 8),
+                            bottomRight: Radius.circular(isLeft ? 8 : 12),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 6,
+                              offset: const Offset(3, 3),
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              blurRadius: 3,
+                              offset: const Offset(-1, -1),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.8),
+                            width: 2.5,
+                          ),
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                color.withValues(alpha: 0.2),
+                                Colors.transparent,
+                                color.withValues(alpha: 0.1),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // Enhanced animal character on top with subtle bounce
+              Positioned(
+                top: maxHeight - animatedHeight,
+                left: 0,
+                right: 0,
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 1000),
+                  tween: Tween(begin: 0.95, end: 1.0),
+                  curve: Curves.elasticOut,
+                  builder: (context, scale, child) {
+                    return Transform.scale(scale: scale, child: animal);
+                  },
+                ),
+              ),
+
+              // Enhanced vote count with rounded friendly typography
+              Positioned(
+                bottom: 15,
+                left: 0,
+                right: 0,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.95),
+                        Colors.white.withValues(alpha: 0.85),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: color, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 4,
+                        offset: const Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '$votes',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: color.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      fontFamily: 'monospace',
+                      letterSpacing: 0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.white,
+                          blurRadius: 1,
+                          offset: const Offset(0.5, 0.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
   
