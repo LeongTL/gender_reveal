@@ -1,1 +1,49 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"gender-reveal1","appId":"1:1034650504304:android:5b09597396ff2d5718f8b5","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"gender-reveal1","appId":"1:1034650504304:ios:55978bf4a09c58a418f8b5","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"gender-reveal1","configurations":{"android":"1:1034650504304:android:5b09597396ff2d5718f8b5","ios":"1:1034650504304:ios:55978bf4a09c58a418f8b5","web":"1:1034650504304:web:3e1ba7283cc6034018f8b5"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gender-reveal1",
+          "appId": "1:1034650504304:android:5b09597396ff2d5718f8b5",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "gender-reveal1",
+          "appId": "1:1034650504304:ios:55978bf4a09c58a418f8b5",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gender-reveal1",
+          "configurations": {
+            "android": "1:1034650504304:android:5b09597396ff2d5718f8b5",
+            "ios": "1:1034650504304:ios:55978bf4a09c58a418f8b5",
+            "web": "1:1034650504304:web:3e1ba7283cc6034018f8b5"
+          }
+        }
+      }
+    }
+  }
+}
