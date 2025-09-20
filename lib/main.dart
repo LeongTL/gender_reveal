@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'firebase_options.dart';
 import 'widgets/auth_wrapper.dart';
+import 'screens/vote_screen.dart';
+import 'screens/gender_reveal_screen.dart';
 
 /// Main entry point for the Gender Reveal Party application
 /// 
@@ -10,6 +15,11 @@ import 'widgets/auth_wrapper.dart';
 void main() async {
   // Ensure Flutter binding is initialized before Firebase
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Configure URL strategy for web routing
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
   
   bool firebaseInitialized = false;
   
@@ -37,11 +47,72 @@ class GenderRevealApp extends StatelessWidget {
   /// Whether to use Firebase (true) or demo mode (false)
   final bool useFirebase;
   
-  const GenderRevealApp({super.key, this.useFirebase = true});
+  GenderRevealApp({super.key, this.useFirebase = true});
+
+  /// Router configuration for URL-based navigation
+  late final GoRouter _router = GoRouter(
+    routes: [
+      // Main voting screen route (after auth)
+      GoRoute(
+        path: '/',
+        builder: (context, state) {
+          debugPrint('Navigating to root path: / (Vote Screen)');
+          return useFirebase ? const AuthWrapper() : const VoteScreen();
+        },
+      ),
+      // Gender reveal results page (chart only)
+      GoRoute(
+        path: '/gender-reveal',
+        builder: (context, state) {
+          debugPrint('Navigating to gender-reveal path: /gender-reveal');
+          return const GenderRevealScreen();
+        },
+      ),
+      // Direct voting page (alternative route)
+      GoRoute(
+        path: '/vote',
+        builder: (context, state) {
+          debugPrint('Navigating to vote path: /vote');
+          return const VoteScreen();
+        },
+      ),
+    ],
+    // Set the initial location
+    initialLocation: '/',
+    // Enable debug logging
+    debugLogDiagnostics: kDebugMode,
+    // Handle unknown routes
+    errorBuilder: (context, state) => Scaffold(
+      appBar: AppBar(title: const Text('Page Not Found')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'Page Not Found',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text('The page "${state.uri}" does not exist.'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => context.go('/'),
+              child: const Text('Go Home'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
+      // Router configuration
+      routerConfig: _router,
+      
       // App configuration
       title: '宝宝性别揭晓派对', // Baby Gender Reveal Party in Chinese
       debugShowCheckedModeBanner: false, // Hide debug banner in release
@@ -87,11 +158,6 @@ class GenderRevealApp extends StatelessWidget {
         ),
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      
-      // Set the appropriate home screen based on Firebase availability
-      home: useFirebase 
-          ? const AuthWrapper()
-          : const AuthWrapper(), // Use same wrapper even without Firebase (will show demo mode)
     );
   }
 }
