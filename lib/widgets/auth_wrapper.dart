@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
 import '../screens/auth_screen.dart';
-import '../screens/vote_screen.dart';
 
 /// Authentication wrapper that manages the app's authentication flow
 /// 
@@ -34,8 +34,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final User? user = snapshot.data;
         
         if (user != null) {
-          // User is signed in, show voting screen
-          return const VoteScreen();
+          // User is signed in, redirect to voting screen
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              context.go('/vote');
+            }
+          });
+          // Show loading while redirecting
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         } else {
           // User is not signed in, show auth screen (always with gradient background)
           return AuthScreen(key: UniqueKey());

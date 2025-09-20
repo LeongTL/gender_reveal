@@ -52,28 +52,30 @@ class GenderRevealApp extends StatelessWidget {
   /// Router configuration for URL-based navigation
   late final GoRouter _router = GoRouter(
     routes: [
-      // Main voting screen route (after auth)
+      // Root path - login/auth only (no direct vote access)
       GoRoute(
         path: '/',
         builder: (context, state) {
-          debugPrint('Navigating to root path: / (Vote Screen)');
-          return useFirebase ? const AuthWrapper() : const VoteScreen();
+          debugPrint('Navigating to root path: / (Login Only)');
+          return const AuthWrapper();
         },
       ),
-      // Gender reveal results page (chart only)
-      GoRoute(
-        path: '/gender-reveal',
-        builder: (context, state) {
-          debugPrint('Navigating to gender-reveal path: /gender-reveal');
-          return const GenderRevealScreen();
-        },
-      ),
-      // Direct voting page (alternative route)
+      // Voting page - only accessible after authentication
       GoRoute(
         path: '/vote',
         builder: (context, state) {
-          debugPrint('Navigating to vote path: /vote');
+          debugPrint('Navigating to vote path: /vote (Voting Screen)');
           return const VoteScreen();
+        },
+      ),
+      // Gender reveal results page (chart only) - accessible to all
+      GoRoute(
+        path: '/gender-reveal',
+        builder: (context, state) {
+          debugPrint(
+            'Navigating to gender-reveal path: /gender-reveal (Results)',
+          );
+          return const GenderRevealScreen();
         },
       ),
     ],
