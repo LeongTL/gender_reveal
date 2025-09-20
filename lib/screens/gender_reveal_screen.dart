@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:video_player/video_player.dart';
 import 'dart:math' as math;
-import '../widgets/balloon_background.dart';
 import '../widgets/firework_animation.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
@@ -41,11 +41,15 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   final GlobalKey<FireworkOverlayState> _fireworkKey =
       GlobalKey<FireworkOverlayState>();
   
+  /// Video controller for background video
+  late VideoPlayerController _videoController;
+
   @override
   void initState() {
     super.initState();
     _setupFirestoreListener();
     _ensureUserExists();
+    _initializeVideoPlayer();
   }
   
   /// Sets up real-time listener for Firestore vote updates
@@ -67,6 +71,23 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       // Silently handle error - voting will still work with fallback username
       debugPrint('Warning: Could not ensure user exists: $e');
     }
+  }
+
+  /// Initialize the video player for background video
+  void _initializeVideoPlayer() {
+    _videoController = VideoPlayerController.asset('assets/video/video1.mp4')
+      ..initialize()
+          .then((_) {
+            // Ensure the first frame is shown and set to loop
+            _videoController.setLooping(true);
+            _videoController.play();
+            if (mounted) {
+              setState(() {});
+            }
+          })
+          .catchError((error) {
+            debugPrint('Video initialization error: $error');
+          });
   }
   
   /// Triggers the gender reveal by updating Firestore
@@ -151,10 +172,23 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         appBar: _buildAppBar(),
         body: Stack(
           children: [
-            // Animated balloon background
-            const Positioned.fill(
-              child: BalloonBackground(enableAnimation: true),
-            ),
+            // Video background - full screen with proper aspect ratio
+            if (_videoController.value.isInitialized)
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _videoController.value.size.width,
+                    height: _videoController.value.size.height,
+                    child: VideoPlayer(_videoController),
+                  ),
+                ),
+              ),
+
+            // Commented out balloon background
+            // const Positioned.fill(
+            //   child: BalloonBackground(enableAnimation: true),
+            // ),
 
             // Semi-transparent overlay for better text readability
             _buildOverlay(),
@@ -1161,5 +1195,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     } else {
       print('FireworkOverlay not found for test firework'); // Debug
     }
+  }
+  
+  @override
+  void dispose() {
+    _videoController.dispose();
+    super.dispose();
   }
 }

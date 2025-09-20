@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
-import '../widgets/balloon_background.dart';
 
 /// Authentication screen for the Gender Reveal Party app
 /// 
@@ -27,11 +26,26 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Animated balloon background
-          const BalloonBackground(
-            enableAnimation: true,
-            balloonCount: 15,
+          // Always show gradient background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFB6C1), Color(0xFF87CEEB)],
+              ),
+            ),
           ),
+
+          // Commented out balloon background
+          // const BalloonBackground(
+          //   enableAnimation: true,
+          //   balloonCount: 15,
+          // ),
+          // const BalloonBackground(
+          //   enableAnimation: true,
+          //   balloonCount: 15,
+          // ),
           
           // Main content
           SafeArea(
@@ -123,14 +137,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     height: 20,
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
-                                : Image.asset(
-                                    'assets/images/google_logo.png',
-                                    height: 20,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      // Fallback icon if Google logo asset is not available
-                                      return const Icon(Icons.account_circle, size: 20);
-                                    },
-                                  ),
+                                : null,
                             label: Text(
                               _isLoading ? 'Signing in...' : 'Continue with Google',
                               style: const TextStyle(
@@ -283,4 +290,5 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
   }
+  
 }
