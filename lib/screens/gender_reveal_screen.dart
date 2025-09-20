@@ -752,18 +752,18 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF89CFF0).withValues(alpha: 0.2),
-                    const Color(0xFF87CEEB).withValues(alpha: 0.1),
+                    const Color(0xFF89CFF0).withValues(alpha: 0.6),
+                    const Color(0xFF87CEEB).withValues(alpha: 0.5),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: const Color(0xFF89CFF0).withValues(alpha: 0.3),
+                  color: const Color(0xFF89CFF0).withValues(alpha: 0.7),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF89CFF0).withValues(alpha: 0.1),
+                    color: const Color(0xFF89CFF0).withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -819,18 +819,18 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFFF4C2C2).withValues(alpha: 0.2),
-                    const Color(0xFFFFB6C1).withValues(alpha: 0.1),
+                    const Color(0xFFF4C2C2).withValues(alpha: 0.6),
+                    const Color(0xFFFFB6C1).withValues(alpha: 0.5),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: const Color(0xFFF4C2C2).withValues(alpha: 0.3),
+                  color: const Color(0xFFF4C2C2).withValues(alpha: 0.7),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF4C2C2).withValues(alpha: 0.1),
+                    color: const Color(0xFFF4C2C2).withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
