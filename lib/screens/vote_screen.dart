@@ -65,7 +65,7 @@ class _VoteScreenState extends State<VoteScreen> {
 
   /// Initialize the video player for background video
   void _initializeVideoPlayer() {
-    _videoController = VideoPlayerController.asset('assets/video/video1.mp4')
+    _videoController = VideoPlayerController.asset('assets/video/video2.mp4')
       ..initialize()
           .then((_) {
             _videoController.setLooping(true);
