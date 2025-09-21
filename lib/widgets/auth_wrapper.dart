@@ -34,10 +34,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final User? user = snapshot.data;
         
         if (user != null) {
-          // User is signed in, redirect to voting screen
+          // User is signed in, redirect to welcome screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
-              context.go('/vote');
+              context.go('/welcome');
             }
           });
           // Show loading while redirecting
