@@ -34,6 +34,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Stream subscription for Firestore updates
   late Stream<Map<String, dynamic>> _firestoreStream;
 
+  /// Auth state subscription to handle sign out
+  late Stream<User?> _authStream;
+
   /// Global key to access the firework overlay
   final GlobalKey<FireworkOverlayState> _fireworkKey =
       GlobalKey<FireworkOverlayState>();
@@ -44,14 +47,39 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   @override
   void initState() {
     super.initState();
+    _checkAuthAndRedirect();
     _setupFirestoreListener();
+    _setupAuthListener();
     _ensureUserExists();
     _initializeVideoPlayer();
+  }
+
+  /// Check if user is authenticated, redirect to auth screen if not
+  void _checkAuthAndRedirect() {
+    if (!AuthService.isSignedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go('/');
+        }
+      });
+      return;
+    }
   }
 
   /// Sets up real-time listener for Firestore vote updates
   void _setupFirestoreListener() {
     _firestoreStream = FirestoreService.getGenderRevealStream();
+  }
+
+  /// Sets up auth state listener to handle sign out
+  void _setupAuthListener() {
+    _authStream = AuthService.authStateChanges;
+    _authStream.listen((User? user) {
+      if (user == null && mounted) {
+        // User signed out, redirect to auth screen
+        context.go('/');
+      }
+    });
   }
 
   /// Ensures current user exists in Firestore users collection
@@ -123,6 +151,10 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   Future<void> _signOut() async {
     try {
       await AuthService.signOut();
+      // Explicitly redirect to auth screen after sign out
+      if (mounted) {
+        context.go('/');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

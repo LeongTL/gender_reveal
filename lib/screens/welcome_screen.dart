@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 
 /// Welcome screen that appears after authentication
 /// 
@@ -36,9 +38,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   void initState() {
     super.initState();
+    _checkAuthAndRedirect();
     _initializeAnimations();
     _preloadVideo();
     _startWelcomeSequence();
+  }
+
+  /// Check if user is authenticated, redirect to auth screen if not
+  void _checkAuthAndRedirect() {
+    if (!AuthService.isSignedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go('/');
+        }
+      });
+      return;
+    }
   }
 
   void _initializeAnimations() {
