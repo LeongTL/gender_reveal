@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'firebase_options.dart';
 import 'widgets/auth_wrapper.dart';
+import 'screens/welcome_screen.dart';
 import 'screens/vote_screen.dart';
 import 'screens/gender_reveal_screen.dart';
 
@@ -60,7 +61,15 @@ class GenderRevealApp extends StatelessWidget {
           return const AuthWrapper();
         },
       ),
-      // Voting page - only accessible after authentication
+      // Welcome page - appears after authentication
+      GoRoute(
+        path: '/welcome',
+        builder: (context, state) {
+          debugPrint('Navigating to welcome path: /welcome (Welcome Screen)');
+          return const WelcomeScreen();
+        },
+      ),
+      // Voting page - accessible from welcome screen
       GoRoute(
         path: '/vote',
         builder: (context, state) {
