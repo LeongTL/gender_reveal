@@ -263,14 +263,28 @@ class _VoteScreenState extends State<VoteScreen> {
 
               const SizedBox(height: 20),
 
-              // User name
-              Text(
-                displayName,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+              // User name with edit functionality
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _editUsername(context, displayName),
+                    icon: const Icon(Icons.edit, size: 20),
+                    tooltip: 'Edit username',
+                    padding: const EdgeInsets.all(4),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 8),
@@ -341,12 +355,6 @@ class _VoteScreenState extends State<VoteScreen> {
                 ),
                 child: Column(
                   children: [
-                    _buildProfileDetailRow(
-                      icon: Icons.fingerprint,
-                      label: 'User ID',
-                      value: user?.uid ?? 'N/A',
-                    ),
-                    const SizedBox(height: 12),
                     _buildProfileDetailRow(
                       icon: Icons.access_time,
                       label: 'Account Created',
@@ -536,9 +544,73 @@ class _VoteScreenState extends State<VoteScreen> {
           ),
           tooltip: 'View Results',
         ),
-
-        // Enhanced profile menu button (matching gender reveal screen)
-        PopupMenuButton<String>(
+        
+        // User profile display with better visibility (matching gender reveal screen)
+        Container(
+          margin: const EdgeInsets.only(right: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // User name display (visible on wider screens)
+              if (MediaQuery.of(context).size.width > 500) ...[
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 2.0,
+                            color: Colors.black26,
+                            offset: Offset(1.0, 1.0),
+                          ),
+                        ],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (user?.email != null && !AuthService.isAnonymous)
+                      Text(
+                        user!.email!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 2.0,
+                              color: Colors.black26,
+                              offset: Offset(1.0, 1.0),
+                            ),
+                          ],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if (AuthService.isAnonymous)
+                      const Text(
+                        'Guest',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 2.0,
+                              color: Colors.black26,
+                              offset: Offset(1.0, 1.0),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+              ],
+              
+              // Enhanced profile menu button (matching gender reveal screen)
+              PopupMenuButton<String>(
           icon: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -697,7 +769,9 @@ class _VoteScreenState extends State<VoteScreen> {
             ),
           ],
         ),
-        const SizedBox(width: 8),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1097,5 +1171,153 @@ class _VoteScreenState extends State<VoteScreen> {
       ),
       child: Text('Error: $error', style: const TextStyle(color: Colors.white)),
     );
+  }
+
+  /// Shows dialog to edit username
+  Future<void> _editUsername(BuildContext context, String currentName) async {
+    final TextEditingController controller = TextEditingController(
+      text: currentName,
+    );
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.edit, color: Colors.blue),
+              const SizedBox(width: 8),
+              const Text('Edit Username'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter your new username:',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 30,
+                decoration: InputDecoration(
+                  hintText: 'Enter username',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.person),
+                  counterText: '',
+                ),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    Navigator.of(context).pop();
+                    _updateUsername(value.trim());
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty && newName != currentName) {
+                  Navigator.of(context).pop();
+                  _updateUsername(newName);
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Updates the username in Firebase
+  Future<void> _updateUsername(String newUsername) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) return;
+
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Text('Updating username...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Update user profile in Firebase Auth
+      await user.updateDisplayName(newUsername);
+
+      // Update user document in Firestore
+      await FirestoreService.createOrUpdateUser(user.uid, newUsername);
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text('Username updated to "$newUsername"'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // Refresh the UI by calling setState (the app bar will automatically update)
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error updating username: $e');
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 12),
+                Text('Failed to update username: ${e.toString()}'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 }
