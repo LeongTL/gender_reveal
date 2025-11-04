@@ -51,6 +51,9 @@ dependencies:
   
   # Router for URL-based navigation
   go_router: ^14.5.0
+  
+  # HTTP client for ESP32 RGB light control
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:

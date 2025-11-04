@@ -5,11 +5,13 @@ import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
+import 'dart:async';
 import '../widgets/firework_animation.dart';
 import '../widgets/barrage_display_widget.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../services/barrage_service.dart';
+import '../services/esp32_light_service.dart';
 
 /// Gender reveal results screen that displays only the voting chart and results
 /// This screen shows the final voting results without any voting functionality
@@ -46,6 +48,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   
   /// Video controller for background video
   late VideoPlayerController _videoController;
+
+  /// ESP32 RGB light service for controlling physical lights
+  final ESP32LightService _esp32Service = ESP32LightService();
 
   @override
   void initState() {
@@ -191,6 +196,319 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     }
   }
 
+  /// Show ESP32 discovery dialog to manually input IP address
+  Future<void> _showESP32DiscoveryDialog() async {
+    final TextEditingController ipController = TextEditingController(
+      text: _esp32Service.deviceIP ?? '192.168.31.37',
+    );
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Configure ESP32 RGB Light'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter your ESP32 device IP address:',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: ipController,
+                decoration: const InputDecoration(
+                  labelText: 'IP Address',
+                  hintText: '192.168.x.x',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.wifi),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Note: Make sure your ESP32 is on the same network and CORS is enabled.',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final ip = ipController.text.trim();
+                if (ip.isNotEmpty) {
+                  _esp32Service.setDeviceIP(ip);
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('ESP32 configured: $ip'),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Test ESP32 RGB light with current gender result color
+  Future<void> _testESP32Light() async {
+    if (!_esp32Service.isConnected) {
+      // Show discovery dialog if not configured
+      await _showESP32DiscoveryDialog();
+      if (!_esp32Service.isConnected) return;
+    }
+
+    // Show loading indicator
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 16),
+            Text('Sending color to ESP32...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // Determine color based on current vote leader
+    bool success;
+    String colorName;
+    if (boyVotes > girlVotes) {
+      success = await _esp32Service.sendBoyColor();
+      colorName = 'Blue (Boy)';
+    } else if (girlVotes > boyVotes) {
+      success = await _esp32Service.sendGirlColor();
+      colorName = 'Pink (Girl)';
+    } else {
+      // Tie - alternate or show both
+      success = await _esp32Service.sendBoyColor();
+      colorName = 'Blue (Tie - Boy color)';
+    }
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ ESP32 light updated: $colorName'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            '✗ Failed to update ESP32 light. Check connection.',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Configure',
+            textColor: Colors.white,
+            onPressed: _showESP32DiscoveryDialog,
+          ),
+        ),
+      );
+    }
+  }
+
+  // NOTE: rgb_light calls _sendRevealAnswerCommands() but that method doesn't exist in rgb_light!
+  // So we don't implement it either. The ESP32 theme animation does the work automatically.
+
+  /// Send "Reveal Answer" theme animation to ESP32 (alternating pink/blue flashing)
+  /// EXACTLY matches rgb_light implementation: sends initial commands THEN starts flash animation
+  Future<void> _sendRevealAnswerTheme() async {
+    if (!_esp32Service.isConnected) {
+      // Show discovery dialog if not configured
+      await _showESP32DiscoveryDialog();
+      if (!_esp32Service.isConnected) return;
+    }
+
+    // Show loading indicator
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🎨 Starting Reveal Answer animation...'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // CRITICAL: rgb_light calls _sendRevealAnswerCommands() but that method doesn't exist!
+    // So we ONLY start the flash animation (with debouncing like rgb_light does)
+    // The ESP32 theme animation will do the actual work
+    _startRevealFlashAnimation();
+  }
+
+  /// Animation state for reveal flashing
+  bool _isRevealAnimating = false;
+  int _revealFlashCount = 0;
+  Timer? _revealFlashTimer;
+  Timer? _colorCommandTimer;
+  Color? _pendingColor;
+
+  /// Debounced color command to prevent overwhelming ESP32 (EXACT match to rgb_light)
+  void _sendColorCommandDebounced(Color color) {
+    _pendingColor = color;
+
+    // Cancel existing timer
+    _colorCommandTimer?.cancel();
+
+    // Set new timer (150ms delay - EXACT match to rgb_light)
+    _colorCommandTimer = Timer(const Duration(milliseconds: 150), () {
+      if (_pendingColor != null) {
+        _esp32Service.setRGB(
+          _pendingColor!.red,
+          _pendingColor!.green,
+          _pendingColor!.blue,
+        );
+        _pendingColor = null;
+      }
+    });
+  }
+
+  /// Start the reveal flash animation sequence
+  /// EXACTLY matches rgb_light lines 601-647: immediate color commands, NO debouncing
+  void _startRevealFlashAnimation() {
+    // Stop any existing animation
+    _stopRevealFlashAnimation();
+
+    setState(() {
+      _isRevealAnimating = true;
+      _revealFlashCount = 0;
+    });
+
+    // Animation parameters (EXACT match to rgb_light)
+    const flashDuration = 10000; // 10 seconds for flashing
+    const flashInterval = 300; // 300ms per flash
+    const totalFlashes = flashDuration ~/ flashInterval; // 33 flashes
+
+    void performFlash() {
+      if (!_isRevealAnimating || !mounted) return;
+
+      if (_revealFlashCount < totalFlashes) {
+        // Alternate between DodgerBlue and DeepPink (EXACT colors from rgb_light)
+        final targetColor = (_revealFlashCount % 2 == 0)
+            ? const Color(0xFF1E90FF) // DodgerBlue #1E90FF (30, 144, 255)
+            : const Color(0xFFFF1493); // DeepPink #FF1493 (255, 20, 147)
+
+        // CRITICAL: Use debouncing (EXACT match to rgb_light line 623)
+        // This means only ~1 request gets sent (the last one), but ESP32 theme animation does the work!
+        _sendColorCommandDebounced(targetColor);
+
+        _revealFlashCount++;
+        _revealFlashTimer = Timer(
+          const Duration(milliseconds: flashInterval),
+          performFlash,
+        );
+      } else {
+        // Flashing complete - turn off lights for 5 seconds
+        debugPrint('🎨 Flashing complete - turning off lights (5 seconds)');
+        _esp32Service.setRGB(0, 0, 0); // Turn off
+
+        // After 5 seconds, show solid pink for 2 seconds
+        _revealFlashTimer = Timer(const Duration(seconds: 5), () {
+          if (_isRevealAnimating && mounted) {
+            debugPrint('🎨 Showing solid pink for 2 seconds');
+            const finalPink = Color(0xFFFF1493);
+            _esp32Service.setRGB(
+              finalPink.red,
+              finalPink.green,
+              finalPink.blue,
+            );
+
+            // After 2 more seconds, start pink gradient animation
+            _revealFlashTimer = Timer(const Duration(seconds: 2), () {
+              if (_isRevealAnimating && mounted) {
+                _startPinkGradientAnimation();
+              }
+            });
+          }
+        });
+      }
+    }
+
+    // Start the flashing sequence
+    debugPrint('🎨 Starting reveal flash animation (10 seconds)');
+    performFlash();
+  }
+
+  /// Start a beautiful pink gradient animation after the reveal
+  /// Dark pink to lighter pink gradient (no white-ish colors)
+  void _startPinkGradientAnimation() {
+    debugPrint('🎨 Starting pink gradient animation');
+
+    // DARKER pink gradient (rich, saturated pinks - no white/pale colors)
+    final pinkGradientColors = [
+      const Color(
+        0xFF8B0046,
+      ), // Very Dark Pink - RGB(139, 0, 70) - Deep magenta
+      const Color(
+        0xFFC71585,
+      ), // Medium Violet Red - RGB(199, 21, 133) - Dark pink
+      const Color(
+        0xFFDB1B78,
+      ), // Rich Pink - RGB(219, 27, 120) - Vibrant dark pink
+      const Color(
+        0xFFFF1493,
+      ), // Deep Pink - RGB(255, 20, 147) - Classic deep pink
+      const Color(
+        0xFFE6388B,
+      ), // Hot Magenta Pink - RGB(230, 56, 139) - Rich pink
+      const Color(
+        0xFFFF2D9D,
+      ), // Bright Deep Pink - RGB(255, 45, 157) - Vibrant pink
+    ];
+
+    // Send complete theme pattern to ESP32 ONCE - ESP32 handles the loop!
+    // This matches rgb_light's _sendThemePattern() behavior (lines 552-567)
+    final themeData = {
+      'colors': pinkGradientColors
+          .map((color) => {'r': color.red, 'g': color.green, 'b': color.blue})
+          .toList(),
+      'duration': 1200, // Duration per color in milliseconds
+      'transitionTime': 800, // Wait time between colors
+      'loop': true, // Loop the animation
+    };
+
+    debugPrint('🎨 Sending pink gradient theme pattern to ESP32 (ONCE)');
+    _esp32Service.sendTheme(themeData);
+
+    // No more individual color commands - ESP32 handles everything!
+    debugPrint('✅ Theme pattern sent - ESP32 will handle the animation loop');
+  }
+
+  /// Stop the reveal flash animation
+  void _stopRevealFlashAnimation() {
+    _revealFlashTimer?.cancel();
+    setState(() {
+      _isRevealAnimating = false;
+      _revealFlashCount = 0;
+    });
+    debugPrint('🛑 Reveal flash animation stopped');
+  }
+
   @override
   Widget build(BuildContext context) {
     return FireworkOverlay(
@@ -273,6 +591,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   @override
   void dispose() {
     _videoController.dispose();
+    _stopRevealFlashAnimation();
+    _colorCommandTimer?.cancel();
     super.dispose();
   }
 
@@ -627,7 +947,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
                 _buildRevealButton(),
               if (isRevealed) _buildRevealResult(),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+              // ESP32 TEST and Discovery buttons
+              if (AuthService.currentUser?.uid ==
+                  'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                _buildESP32Controls(),
+              const SizedBox(height: 20),
               if (snapshot.hasError) _buildErrorMessage(snapshot.error.toString()),
             ],
           );
@@ -955,6 +1280,59 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Builds ESP32 RGB light control buttons
+  Widget _buildESP32Controls() {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        // TEST button
+        ElevatedButton.icon(
+          onPressed: _testESP32Light,
+          icon: const Icon(Icons.lightbulb_outline, size: 18),
+          label: const Text('TEST'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        ),
+        // Reveal Answer theme button
+        ElevatedButton.icon(
+          onPressed: _sendRevealAnswerTheme,
+          icon: const Icon(Icons.auto_awesome, size: 18),
+          label: const Text('Reveal Theme'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        ),
+        // Discovery button
+        OutlinedButton.icon(
+          onPressed: _showESP32DiscoveryDialog,
+          icon: const Icon(Icons.settings_input_antenna, size: 18),
+          label: Text(_esp32Service.isConnected ? 'Config' : 'Discovery'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white, width: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
