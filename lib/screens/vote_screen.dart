@@ -229,40 +229,6 @@ class _VoteScreenState extends State<VoteScreen> {
 
               const SizedBox(height: 24),
 
-              // Profile picture
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(context).primaryColor,
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    color: Theme.of(
-                      context,
-                    ).primaryColor.withValues(alpha: 0.1),
-                    child: Icon(
-                      Icons.person,
-                      color: Theme.of(context).primaryColor,
-                      size: 50,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
               // User name with edit functionality
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -837,20 +803,6 @@ class _VoteScreenState extends State<VoteScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            ),
-            child: Icon(
-              Icons.person,
-              color: Theme.of(context).primaryColor,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
