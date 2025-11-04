@@ -8,6 +8,7 @@ import 'widgets/auth_wrapper.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/vote_screen.dart';
 import 'screens/gender_reveal_screen.dart';
+import 'screens/barrage_demo_screen.dart';
 
 /// Main entry point for the Gender Reveal Party application
 /// 
@@ -85,6 +86,14 @@ class GenderRevealApp extends StatelessWidget {
             'Navigating to gender-reveal path: /gender-reveal (Results)',
           );
           return const GenderRevealScreen();
+        },
+      ),
+      // Barrage system demo page - for testing
+      GoRoute(
+        path: '/barrage-demo',
+        builder: (context, state) {
+          debugPrint('Navigating to barrage-demo path: /barrage-demo (Demo)');
+          return const BarrageDemoScreen();
         },
       ),
     ],
