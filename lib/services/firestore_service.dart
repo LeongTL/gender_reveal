@@ -14,6 +14,7 @@ class FirestoreService {
   static const String _usersCollection = 'users';
   static const String _boyVotesCollection = 'boyVotes';
   static const String _girlVotesCollection = 'girlVotes';
+  static const String _userLatestVoteCollection = 'userLatestVotes';
   static const String _isRevealedCollection = 'isRevealed';
   static const String _isRevealedDocumentId = 'kpw3afYEF0Q2pVHnZlGg';
 
@@ -259,11 +260,21 @@ class FirestoreService {
       final userName = userData?['userName'] ?? 'Anonymous User';
       print('User name: $userName'); // Debug
 
-      // Create vote document in boyVotes collection
+      // Add vote to boyVotes collection (for counting)
       print('Creating boy vote document...'); // Debug
       await _firestore.collection(_boyVotesCollection).add({
+        'userId': user.uid,
+        'userName': userName,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': userName,
+      });
+
+      // Update user's latest vote (for pools display)
+      await _firestore.collection(_userLatestVoteCollection).doc(user.uid).set({
+        'userId': user.uid,
+        'userName': userName,
+        'latestVote': 'boy',
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       print('Boy vote document created successfully'); // Debug
     } catch (e) {
@@ -306,11 +317,21 @@ class FirestoreService {
       final userName = userData?['userName'] ?? 'Anonymous User';
       print('User name: $userName'); // Debug
 
-      // Create vote document in girlVotes collection
+      // Add vote to girlVotes collection (for counting)
       print('Creating girl vote document...'); // Debug
       await _firestore.collection(_girlVotesCollection).add({
+        'userId': user.uid,
+        'userName': userName,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': userName,
+      });
+
+      // Update user's latest vote (for pools display)
+      await _firestore.collection(_userLatestVoteCollection).doc(user.uid).set({
+        'userId': user.uid,
+        'userName': userName,
+        'latestVote': 'girl',
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       print('Girl vote document created successfully'); // Debug
     } catch (e) {
@@ -393,5 +414,38 @@ class FirestoreService {
         message: 'Failed to clear all votes: $e',
       );
     }
+  }
+
+  /// Get a stream of user voting pools (boy voters and girl voters)
+  /// Based on each user's latest vote choice, not all votes
+  ///
+  /// Returns a [Stream<Map<String, dynamic>>] containing:
+  /// - boyVoters: List<Map> with users whose latest vote is for boy
+  /// - girlVoters: List<Map> with users whose latest vote is for girl
+  static Stream<Map<String, dynamic>> getVoterPoolsStream() {
+    return _firestore.collection(_userLatestVoteCollection).snapshots().map((
+      QuerySnapshot latestVotesSnapshot,
+    ) {
+      final boyVoters = <Map<String, dynamic>>[];
+      final girlVoters = <Map<String, dynamic>>[];
+
+      for (final doc in latestVotesSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final userInfo = {
+          'userId': data['userId'] ?? 'Unknown',
+          'userName': data['userName'] ?? 'Anonymous',
+          'voteId': doc.id,
+        };
+
+        final latestVote = data['latestVote'] as String?;
+        if (latestVote == 'boy') {
+          boyVoters.add(userInfo);
+        } else if (latestVote == 'girl') {
+          girlVoters.add(userInfo);
+        }
+      }
+
+      return {'boyVoters': boyVoters, 'girlVoters': girlVoters};
+    });
   }
 }

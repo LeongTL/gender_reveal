@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:math' as math;
 import '../widgets/firework_animation.dart';
+import '../widgets/barrage_input_widget.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 
@@ -471,6 +472,12 @@ class _VoteScreenState extends State<VoteScreen> {
             // Main content with voting interface
             _buildMainContent(),
 
+            // Barrage input widget
+            BarrageInputWidget(
+              onMessageSend: (message) {
+                debugPrint('Barrage message sent: $message');
+              },
+            ),
           ],
         ),
       ),

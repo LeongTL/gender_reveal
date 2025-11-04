@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
 import '../widgets/firework_animation.dart';
+import '../widgets/barrage_display_widget.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../services/barrage_service.dart';
 
 /// Gender reveal results screen that displays only the voting chart and results
 /// This screen shows the final voting results without any voting functionality
@@ -192,36 +195,77 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   Widget build(BuildContext context) {
     return FireworkOverlay(
       key: _fireworkKey,
-      child: Scaffold(
-        appBar: _buildAppBar(),
-        body: Stack(
-          children: [
-            // Video background - full screen with proper aspect ratio
-            if (_videoController.value.isInitialized)
-              Positioned.fill(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: _videoController.value.size.width,
-                    height: _videoController.value.size.height,
-                    child: VideoPlayer(_videoController),
+      child: Stack(
+        children: [
+          // Main scaffold content
+          Scaffold(
+            appBar: _buildAppBar(),
+            body: Stack(
+              children: [
+                // Video background - full screen with proper aspect ratio
+                if (_videoController.value.isInitialized)
+                  Positioned.fill(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _videoController.value.size.width,
+                        height: _videoController.value.size.height,
+                        child: VideoPlayer(_videoController),
+                      ),
+                    ),
                   ),
-                ),
-              ),
 
-            // Semi-transparent overlay for better text readability
-            _buildOverlay(),
+                // Semi-transparent overlay for better text readability
+                _buildOverlay(),
 
-            // Main content with voting results
-            _buildMainContent(),
+                // Main content with voting results
+                _buildMainContent(),
 
-            // Reset button in top-right corner (for testing)
-            _buildResetButton(),
+                // QR code in bottom right corner
+                _buildQRCode(),
+              ],
+            ),
+          ),
 
-            // QR code in bottom right corner
-            _buildQRCode(),
-          ],
-        ),
+          // Barrage display system - positioned on top but below app bar
+          Positioned(
+            top:
+                AppBar().preferredSize.height +
+                MediaQuery.of(context).padding.top,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: BarrageService.getAllMessageStream(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return IgnorePointer(
+                    child: BarrageDisplayWidget(
+                      isActive: true,
+                      messages: snapshot.data!.docs,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+
+          // Reset button in top-right corner (for testing) - positioned above barrage
+          Positioned(
+            top:
+                AppBar().preferredSize.height +
+                MediaQuery.of(context).padding.top +
+                10,
+            right: 20,
+            child: FloatingActionButton(
+              mini: true,
+              onPressed: _resetEvent,
+              backgroundColor: Colors.grey.withValues(alpha: 0.7),
+              child: const Icon(Icons.refresh),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -576,10 +620,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             children: [
               _buildTitle(),
               const SizedBox(height: 10),
-              _buildVotingChart(),
+              _buildVotingChartWithPools(),
               const SizedBox(height: 40),
               if (!isRevealed) _buildRevealButton(),
               if (isRevealed) _buildRevealResult(),
+              const SizedBox(height: 40),
               if (snapshot.hasError) _buildErrorMessage(snapshot.error.toString()),
             ],
           );
@@ -667,6 +712,207 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     );
   }
 
+  /// Builds the voting chart with integrated voter pools beside each vote count
+  Widget _buildVotingChartWithPools() {
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: FirestoreService.getVoterPoolsStream(),
+      builder: (context, poolSnapshot) {
+        final boyVoters = poolSnapshot.hasData
+            ? List<Map<String, dynamic>>.from(
+                poolSnapshot.data!['boyVoters'] ?? [],
+              )
+            : <Map<String, dynamic>>[];
+        final girlVoters = poolSnapshot.hasData
+            ? List<Map<String, dynamic>>.from(
+                poolSnapshot.data!['girlVoters'] ?? [],
+              )
+            : <Map<String, dynamic>>[];
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left side - Boy voters pool
+            _buildSeparateVoterPool(
+              title: '男宝宝 👶',
+              voters: boyVoters,
+              color: const Color(0xFF6BB6FF),
+              votes: boyVoters.length, // Use pool length instead of boyVotes
+            ),
+
+            const SizedBox(width: 20),
+
+            // Center - Voting chart
+            _buildVotingChart(),
+
+            const SizedBox(width: 20),
+
+            // Right side - Girl voters pool
+            _buildSeparateVoterPool(
+              title: '女宝宝 👧',
+              voters: girlVoters,
+              color: const Color(0xFFFF8FA3),
+              votes: girlVoters.length, // Use pool length instead of girlVotes
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Builds a separate voter pool with white background
+  Widget _buildSeparateVoterPool({
+    required String title,
+    required List<Map<String, dynamic>> voters,
+    required Color color,
+    required int votes,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(
+        minHeight: 200,
+        maxHeight: 400,
+        minWidth: 200,
+        maxWidth: 350,
+      ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with title and count side by side
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 24,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
+              // Vote count beside the title
+              Text(
+                '$votes 票',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Voters list - 3 names per row
+          if (voters.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                '暂无投票',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            Flexible(
+              child: SingleChildScrollView(
+                child: _buildVoterGrid(voters, color),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a grid layout with dynamic names per row (4 or 5 based on total count)
+  Widget _buildVoterGrid(List<Map<String, dynamic>> voters, Color color) {
+    // Determine names per row based on total voter count
+    // If more than 9 rows (36+ names with 4 per row), use 5 per row
+    int namesPerRow = 4;
+    int estimatedRows = (voters.length / 4).ceil();
+    if (estimatedRows > 9) {
+      namesPerRow = 5;
+    }
+
+    // Group voters into rows
+    List<List<Map<String, dynamic>>> rows = [];
+    for (int i = 0; i < voters.length; i += namesPerRow) {
+      int end = (i + namesPerRow < voters.length)
+          ? i + namesPerRow
+          : voters.length;
+      rows.add(voters.sublist(i, end));
+    }
+
+    return Column(
+      children: rows.map((row) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: row.map((voter) {
+              final userName = voter['userName'] as String? ?? 'Anonymous';
+              return Flexible(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 40, // Minimum width for very short names
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withOpacity(0.3), width: 1),
+                  ),
+                  child: Text(
+                    userName,
+                    style: TextStyle(
+                      fontSize: namesPerRow == 5 ? 10 : 11,
+                      color: color.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    // Remove maxLines restriction to allow full names
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   /// Builds the reveal button (shown before gender is revealed)
   Widget _buildRevealButton() {
     return ElevatedButton(
@@ -721,20 +967,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       child: Text(
         'Error: $error',
         style: const TextStyle(color: Colors.white),
-      ),
-    );
-  }
-
-  /// Builds the reset button for testing purposes
-  Widget _buildResetButton() {
-    return Positioned(
-      top: 50,
-      right: 20,
-      child: FloatingActionButton(
-        mini: true,
-        onPressed: _resetEvent,
-        backgroundColor: Colors.grey.withValues(alpha: 0.7),
-        child: const Icon(Icons.refresh),
       ),
     );
   }
