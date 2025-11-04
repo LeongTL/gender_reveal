@@ -238,54 +238,77 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
           top: y,
           child: Opacity(
             opacity: opacity.clamp(0.0, 1.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: message.gradientColors,
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
+            child: IntrinsicWidth(
+              child: Container(
+                constraints: const BoxConstraints(
+                  minWidth:
+                      200, // Minimum width to ensure sender name is visible
+                  maxWidth:
+                      600, // Maximum width to prevent overly long messages
                 ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.transparent, width: 0), // Explicitly no border
-                boxShadow: [
-                  BoxShadow(
-                    color: message.gradientColors.first.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    spreadRadius: 2,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: message.gradientColors,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  // Main message text
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Text(
-                      message.text,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: _getContrastTextColor(message.gradientColors),
-                        decoration: TextDecoration.none,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.transparent,
+                    width: 0,
+                  ), // Explicitly no border
+                  boxShadow: [
+                    BoxShadow(
+                      color: message.gradientColors.first.withValues(
+                        alpha: 0.3,
+                      ),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Main message text
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        message.text,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: _getContrastTextColor(message.gradientColors),
+                          decoration: TextDecoration.none,
+                        ),
+                        softWrap: true,
+                        maxLines: 2, // Allow up to 2 lines for longer messages
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                  // Sender name in bottom right
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Text(
-                      '— ${message.sender}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.normal,
-                        color: _getContrastTextColor(message.gradientColors).withValues(alpha: 0.8),
-                        decoration: TextDecoration.none,
+                    const SizedBox(height: 8),
+                    // Sender name aligned to the right
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '— ${message.sender}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: _getContrastTextColor(
+                            message.gradientColors,
+                          ).withValues(alpha: 0.8),
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
