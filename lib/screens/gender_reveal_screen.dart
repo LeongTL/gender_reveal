@@ -622,7 +622,10 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
               const SizedBox(height: 10),
               _buildVotingChartWithPools(),
               const SizedBox(height: 40),
-              if (!isRevealed) _buildRevealButton(),
+              if (!isRevealed &&
+                  AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                _buildRevealButton(),
               if (isRevealed) _buildRevealResult(),
               const SizedBox(height: 40),
               if (snapshot.hasError) _buildErrorMessage(snapshot.error.toString()),
