@@ -179,7 +179,8 @@ class _AuthScreenState extends State<AuthScreen> {
                         
                         const SizedBox(height: 16),
                         
-                        // Anonymous Sign-In Button
+                        // Anonymous Sign-In Button (Temporarily commented out - Google login only)
+                        /* 
                         SizedBox(
                           width: double.infinity,
                           height: 50,
@@ -205,6 +206,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ),
                         ),
+                        */
                         
                         const SizedBox(height: 24),
                         
@@ -260,7 +262,8 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  /// Handle Anonymous Sign-In
+  /// Handle Anonymous Sign-In (Temporarily commented out - Google login only)
+  /*
   Future<void> _signInAnonymously() async {
     setState(() {
       _isLoading = true;
@@ -290,5 +293,6 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
   }
+  */
   
 }
