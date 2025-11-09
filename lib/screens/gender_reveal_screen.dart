@@ -753,6 +753,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     _signOut();
                   } else if (value == 'profile') {
                     _showUserProfile();
+                  } else if (value == 'add_gender') {
+                    _showAddGenderDialog();
                   }
                 },
                 itemBuilder: (context) => [
@@ -861,6 +863,26 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       ],
                     ),
                   ),
+                  
+                  // Add Gender option (only for specific user)
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuItem<String>(
+                      value: 'add_gender',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.baby_changing_station,
+                            color: Colors.purple,
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Add Gender',
+                            style: TextStyle(color: Colors.purple),
+                          ),
+                        ],
+                      ),
+                    ),
                   
                   // Sign out option
                   const PopupMenuItem<String>(
@@ -2078,5 +2100,367 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         );
       },
     );
+  }
+
+  /// Show Add Gender dialog for selecting baby gender
+  void _showAddGenderDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                children: [
+                  const Icon(
+                    Icons.baby_changing_station,
+                    size: 28,
+                    color: Colors.purple,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Add Baby Gender',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Close',
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Instructions
+              const Text(
+                'Select the baby\'s gender:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Gender selection buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _showConfirmGenderDialog('boy');
+                      },
+                      icon: const Icon(Icons.boy, color: Colors.blue),
+                      label: const Text(
+                        'Boy',
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.withOpacity(0.1),
+                        foregroundColor: Colors.blue,
+                        side: const BorderSide(color: Colors.blue),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _showConfirmGenderDialog('girl');
+                      },
+                      icon: const Icon(Icons.girl, color: Colors.pink),
+                      label: const Text(
+                        'Girl',
+                        style: TextStyle(color: Colors.pink),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.pink.withOpacity(0.1),
+                        foregroundColor: Colors.pink,
+                        side: const BorderSide(color: Colors.pink),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Reset button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _showResetGenderDialog();
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  label: const Text(
+                    'Reset Previous Record',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Cancel button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show confirmation dialog for gender selection
+  void _showConfirmGenderDialog(String selectedGender) {
+    final Color genderColor = selectedGender == 'boy'
+        ? Colors.blue
+        : Colors.pink;
+    final IconData genderIcon = selectedGender == 'boy'
+        ? Icons.boy
+        : Icons.girl;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.help_outline, color: genderColor, size: 28),
+            const SizedBox(width: 12),
+            const Text('Confirm Selection'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(genderIcon, size: 64, color: genderColor),
+            const SizedBox(height: 16),
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: const TextStyle(fontSize: 16, color: Colors.black87),
+                children: [
+                  const TextSpan(text: 'Are you sure the baby is a '),
+                  TextSpan(
+                    text: selectedGender.toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: genderColor,
+                    ),
+                  ),
+                  const TextSpan(text: '?'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This will save the gender information to the database.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _saveBabyGender(selectedGender);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: genderColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show reset confirmation dialog
+  void _showResetGenderDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_outlined, color: Colors.red, size: 28),
+            SizedBox(width: 12),
+            Text('Reset Gender Record'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_forever, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text(
+              'Are you sure you want to delete the previously added gender record?',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _resetBabyGender();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Save baby gender to Firestore
+  Future<void> _saveBabyGender(String gender) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await FirestoreService.saveBabyGender(gender);
+
+      // Hide loading indicator
+      Navigator.of(context).pop();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                gender == 'boy' ? Icons.boy : Icons.girl,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Text('Baby gender saved as ${gender.toUpperCase()}!'),
+            ],
+          ),
+          backgroundColor: gender == 'boy' ? Colors.blue : Colors.pink,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      // Hide loading indicator
+      Navigator.of(context).pop();
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('Failed to save gender: $e'),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  /// Reset/Delete baby gender from Firestore
+  Future<void> _resetBabyGender() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await FirestoreService.deleteBabyGender();
+
+      // Hide loading indicator
+      Navigator.of(context).pop();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.delete_forever, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Baby gender record deleted successfully!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      // Hide loading indicator
+      Navigator.of(context).pop();
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('Failed to delete gender record: $e'),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 }
