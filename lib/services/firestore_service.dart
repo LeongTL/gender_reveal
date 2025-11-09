@@ -17,6 +17,8 @@ class FirestoreService {
   static const String _userLatestVoteCollection = 'userLatestVotes';
   static const String _isRevealedCollection = 'isRevealed';
   static const String _isRevealedDocumentId = 'kpw3afYEF0Q2pVHnZlGg';
+  static const String _babyGenderCollection = 'baby_gender';
+  static const String _babyGenderDocumentId = 'baby_document';
 
   /// Creates or updates user document in Firestore
   /// 
@@ -447,5 +449,82 @@ class FirestoreService {
 
       return {'boyVoters': boyVoters, 'girlVoters': girlVoters};
     });
+  }
+
+  /// Saves baby gender selection to Firestore
+  ///
+  /// This method stores the baby gender and corresponding color hex in the database.
+  /// Only one document is allowed in the collection at a time.
+  static Future<void> saveBabyGender(String gender) async {
+    try {
+      String colorHex;
+      if (gender.toLowerCase() == 'boy') {
+        colorHex = '0xFF1E90FF'; // Blue color
+      } else if (gender.toLowerCase() == 'girl') {
+        colorHex = '0xFFFF1493'; // Pink color
+      } else {
+        throw ArgumentError('Invalid gender. Must be "boy" or "girl".');
+      }
+
+      await _firestore
+          .collection(_babyGenderCollection)
+          .doc(_babyGenderDocumentId)
+          .set({
+            'baby_gender': gender,
+            'baby_color_hex': colorHex,
+            'created_at': FieldValue.serverTimestamp(),
+          });
+    } catch (e) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to save baby gender: $e',
+      );
+    }
+  }
+
+  /// Gets baby gender information from Firestore
+  ///
+  /// Returns the baby gender document data or null if it doesn't exist.
+  static Future<Map<String, dynamic>?> getBabyGender() async {
+    try {
+      final doc = await _firestore
+          .collection(_babyGenderCollection)
+          .doc(_babyGenderDocumentId)
+          .get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to get baby gender: $e',
+      );
+    }
+  }
+
+  /// Deletes the baby gender record from Firestore
+  ///
+  /// This method removes the baby gender document completely.
+  static Future<void> deleteBabyGender() async {
+    try {
+      await _firestore
+          .collection(_babyGenderCollection)
+          .doc(_babyGenderDocumentId)
+          .delete();
+    } catch (e) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to delete baby gender: $e',
+      );
+    }
+  }
+
+  /// Stream for real-time baby gender updates
+  ///
+  /// Returns a stream that emits baby gender data changes in real-time.
+  static Stream<Map<String, dynamic>?> getBabyGenderStream() {
+    return _firestore
+        .collection(_babyGenderCollection)
+        .doc(_babyGenderDocumentId)
+        .snapshots()
+        .map((snapshot) => snapshot.exists ? snapshot.data() : null);
   }
 }
