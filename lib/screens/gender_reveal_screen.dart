@@ -12,6 +12,7 @@ import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../services/barrage_service.dart';
 import '../services/esp32_light_service.dart';
+import '../services/encryption_service.dart';
 
 /// Gender reveal results screen that displays only the voting chart and results
 /// This screen shows the final voting results without any voting functionality
@@ -553,6 +554,30 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       _revealFlashCount = 0;
     });
     debugPrint('🛑 Reveal flash animation stopped');
+  }
+
+  /// Debug method to show encrypted gender examples (remove in production)
+  void _showEncryptedExamples() {
+    // Show what encrypted values look like in the console
+    print('\n=== 🔐 ENCRYPTED GENDER EXAMPLES ===');
+    print(
+      'Original "boy" → Encrypted: "${EncryptionService.encryptGender('boy')}"',
+    );
+    print(
+      'Original "girl" → Encrypted: "${EncryptionService.encryptGender('girl')}"',
+    );
+    print('=====================================\n');
+
+    // Show in UI as well
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Encrypted examples printed to console. Check debug output for encrypted values.',
+        ),
+        backgroundColor: Colors.purple,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -2246,7 +2271,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _showResetGenderDialog();
+                    // _showResetGenderDialog();  // Temporarily commented out
+                    print('Reset functionality temporarily disabled');
                   },
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: const Text(

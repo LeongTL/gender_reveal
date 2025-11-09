@@ -54,6 +54,9 @@ dependencies:
   
   # HTTP client for ESP32 RGB light control
   http: ^1.1.0
+  
+  # Encryption package for sensitive data
+  encrypt: ^5.0.3
 
 dev_dependencies:
   flutter_test:

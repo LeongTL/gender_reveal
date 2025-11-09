@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
+import 'encryption_service.dart';
 
 /// Service class for managing Firebase Firestore operations
 /// 
@@ -451,27 +452,31 @@ class FirestoreService {
     });
   }
 
-  /// Saves baby gender selection to Firestore
+  /// Saves baby gender selection to Firestore with encryption
   ///
-  /// This method stores the baby gender and corresponding color hex in the database.
+  /// This method encrypts the baby gender before storing it in the database
+  /// so you can't accidentally see the answer when working with the database.
   /// Only one document is allowed in the collection at a time.
   static Future<void> saveBabyGender(String gender) async {
     try {
-      String colorHex;
-      if (gender.toLowerCase() == 'boy') {
-        colorHex = '0xFF1E90FF'; // Blue color
-      } else if (gender.toLowerCase() == 'girl') {
-        colorHex = '0xFFFF1493'; // Pink color
-      } else {
+      // Validate input
+      if (gender.toLowerCase() != 'boy' && gender.toLowerCase() != 'girl') {
         throw ArgumentError('Invalid gender. Must be "boy" or "girl".');
       }
+
+      // Encrypt the gender value so it's not visible in the database
+      final encryptedGender = EncryptionService.encryptGender(
+        gender.toLowerCase(),
+      );
+
+      // Debug: Show what the encrypted value looks like
+      print('🔐 Encrypting gender "$gender" → "$encryptedGender"');
 
       await _firestore
           .collection(_babyGenderCollection)
           .doc(_babyGenderDocumentId)
           .set({
-            'baby_gender': gender,
-            'baby_color_hex': colorHex,
+            'baby_gender': encryptedGender, // Store encrypted value
             'created_at': FieldValue.serverTimestamp(),
           });
     } catch (e) {
@@ -482,16 +487,45 @@ class FirestoreService {
     }
   }
 
-  /// Gets baby gender information from Firestore
+  /// Gets baby gender information from Firestore with decryption
   ///
-  /// Returns the baby gender document data or null if it doesn't exist.
+  /// Returns the baby gender document data with decrypted gender value,
+  /// or null if it doesn't exist.
   static Future<Map<String, dynamic>?> getBabyGender() async {
     try {
       final doc = await _firestore
           .collection(_babyGenderCollection)
           .doc(_babyGenderDocumentId)
           .get();
-      return doc.exists ? doc.data() : null;
+      
+      if (!doc.exists) return null;
+
+      final data = doc.data()!;
+      final encryptedGender = data['baby_gender'] as String?;
+
+      if (encryptedGender != null) {
+        try {
+          // Decrypt the gender value before returning
+          final decryptedGender = EncryptionService.decryptGender(
+            encryptedGender,
+          );
+
+          // Debug: Show decryption (remove in production)
+          print('🔓 Decrypting gender "$encryptedGender" → "$decryptedGender"');
+
+          // Return data with decrypted gender
+          return {
+            ...data,
+            'baby_gender': decryptedGender, // Replace encrypted with decrypted
+          };
+        } catch (decryptError) {
+          print('❌ Failed to decrypt baby gender: $decryptError');
+          // Return original data if decryption fails
+          return data;
+        }
+      }
+
+      return data;
     } catch (e) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
@@ -517,14 +551,42 @@ class FirestoreService {
     }
   }
 
-  /// Stream for real-time baby gender updates
+  /// Stream for real-time baby gender updates with decryption
   ///
-  /// Returns a stream that emits baby gender data changes in real-time.
+  /// Returns a stream that emits baby gender data changes in real-time
+  /// with decrypted gender values.
   static Stream<Map<String, dynamic>?> getBabyGenderStream() {
     return _firestore
         .collection(_babyGenderCollection)
         .doc(_babyGenderDocumentId)
         .snapshots()
-        .map((snapshot) => snapshot.exists ? snapshot.data() : null);
+        .map((snapshot) {
+          if (!snapshot.exists) return null;
+
+          final data = snapshot.data()!;
+          final encryptedGender = data['baby_gender'] as String?;
+
+          if (encryptedGender != null) {
+            try {
+              // Decrypt the gender value in real-time
+              final decryptedGender = EncryptionService.decryptGender(
+                encryptedGender,
+              );
+
+              // Return data with decrypted gender
+              return {
+                ...data,
+                'baby_gender':
+                    decryptedGender, // Replace encrypted with decrypted
+              };
+            } catch (decryptError) {
+              print('❌ Failed to decrypt baby gender in stream: $decryptError');
+              // Return original data if decryption fails
+              return data;
+            }
+          }
+
+          return data;
+        });
   }
 }
