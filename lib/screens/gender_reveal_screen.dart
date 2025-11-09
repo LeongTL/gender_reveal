@@ -12,6 +12,7 @@ import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../services/barrage_service.dart';
 import '../services/esp32_light_service.dart';
+import '../services/encryption_service.dart';
 
 /// Gender reveal results screen that displays only the voting chart and results
 /// This screen shows the final voting results without any voting functionality
@@ -427,23 +428,10 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         debugPrint('🎨 Flashing complete - turning off lights (5 seconds)');
         _esp32Service.setRGB(0, 0, 0); // Turn off
 
-        // After 5 seconds, show solid pink for 2 seconds
+        // After 5 seconds, show solid color for 2 seconds based on database gender
         _revealFlashTimer = Timer(const Duration(seconds: 5), () {
           if (_isRevealAnimating && mounted) {
-            debugPrint('🎨 Showing solid pink for 2 seconds');
-            const finalPink = Color(0xFFFF1493);
-            _esp32Service.setRGB(
-              finalPink.red,
-              finalPink.green,
-              finalPink.blue,
-            );
-
-            // After 2 more seconds, start pink gradient animation
-            _revealFlashTimer = Timer(const Duration(seconds: 2), () {
-              if (_isRevealAnimating && mounted) {
-                _startPinkGradientAnimation();
-              }
-            });
+            _showSolidRevealColor();
           }
         });
       }
@@ -454,37 +442,97 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     performFlash();
   }
 
-  /// Start a beautiful pink gradient animation after the reveal
-  /// Dark pink to lighter pink gradient (no white-ish colors)
-  void _startPinkGradientAnimation() {
-    debugPrint('🎨 Starting pink gradient animation');
+  /// Show solid color for 2 seconds based on database gender, then start gradient animation
+  Future<void> _showSolidRevealColor() async {
+    try {
+      // Get baby gender from database
+      final babyGenderData = await FirestoreService.getBabyGender();
+      final babyGender = babyGenderData?['baby_gender']?.toString().toLowerCase();
+      
+      // Determine colors based on database value
+      Color solidColor;
+      String genderName;
+      
+      if (babyGender == 'boy') {
+        solidColor = const Color(0xFF1E90FF); // DodgerBlue
+        genderName = 'boy (blue)';
+      } else if (babyGender == 'girl') {
+        solidColor = const Color(0xFFFF1493); // DeepPink
+        genderName = 'girl (pink)';
+      } else {
+        // Default to pink if no database value or invalid value
+        solidColor = const Color(0xFFFF1493); // DeepPink
+        genderName = 'default (pink)';
+        debugPrint('⚠️ No baby gender found in database, defaulting to pink');
+      }
+      
+      debugPrint('🎨 Showing solid $genderName for 2 seconds');
+      _esp32Service.setRGB(
+        solidColor.red,
+        solidColor.green,
+        solidColor.blue,
+      );
 
-    // DARKER pink gradient (rich, saturated pinks - no white/pale colors)
-    final pinkGradientColors = [
-      const Color(
-        0xFF8B0046,
-      ), // Very Dark Pink - RGB(139, 0, 70) - Deep magenta
-      const Color(
-        0xFFC71585,
-      ), // Medium Violet Red - RGB(199, 21, 133) - Dark pink
-      const Color(
-        0xFFDB1B78,
-      ), // Rich Pink - RGB(219, 27, 120) - Vibrant dark pink
-      const Color(
-        0xFFFF1493,
-      ), // Deep Pink - RGB(255, 20, 147) - Classic deep pink
-      const Color(
-        0xFFE6388B,
-      ), // Hot Magenta Pink - RGB(230, 56, 139) - Rich pink
-      const Color(
-        0xFFFF2D9D,
-      ), // Bright Deep Pink - RGB(255, 45, 157) - Vibrant pink
-    ];
+      // After 2 seconds, start gradient animation
+      _revealFlashTimer = Timer(const Duration(seconds: 2), () {
+        if (_isRevealAnimating && mounted) {
+          _startGradientAnimation(babyGender);
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ Error getting baby gender: $e');
+      // Fallback to pink if database error
+      debugPrint('🎨 Fallback: Showing solid pink for 2 seconds');
+      const fallbackPink = Color(0xFFFF1493);
+      _esp32Service.setRGB(
+        fallbackPink.red,
+        fallbackPink.green,
+        fallbackPink.blue,
+      );
+      
+      // After 2 seconds, start pink gradient animation
+      _revealFlashTimer = Timer(const Duration(seconds: 2), () {
+        if (_isRevealAnimating && mounted) {
+          _startGradientAnimation('girl'); // Default to girl
+        }
+      });
+    }
+  }
+
+  /// Start gradient animation based on baby gender from database
+  void _startGradientAnimation(String? babyGender) {
+    List<Color> gradientColors;
+    String colorSchemeName;
+    
+    if (babyGender == 'boy') {
+      // BLUE gradient (rich, saturated blues)
+      gradientColors = [
+        const Color(0xFF000080), // Navy Blue - RGB(0, 0, 128)
+        const Color(0xFF0000CD), // Medium Blue - RGB(0, 0, 205)
+        const Color(0xFF1E90FF), // DodgerBlue - RGB(30, 144, 255)
+        const Color(0xFF4169E1), // Royal Blue - RGB(65, 105, 225)
+        const Color(0xFF6495ED), // Cornflower Blue - RGB(100, 149, 237)
+        const Color(0xFF87CEEB), // Sky Blue - RGB(135, 206, 235)
+      ];
+      colorSchemeName = 'blue gradient';
+    } else {
+      // PINK gradient (rich, saturated pinks - default for girl or unknown)
+      gradientColors = [
+        const Color(0xFF8B0046), // Very Dark Pink - RGB(139, 0, 70)
+        const Color(0xFFC71585), // Medium Violet Red - RGB(199, 21, 133)
+        const Color(0xFFDB1B78), // Rich Pink - RGB(219, 27, 120)
+        const Color(0xFFFF1493), // Deep Pink - RGB(255, 20, 147)
+        const Color(0xFFE6388B), // Hot Magenta Pink - RGB(230, 56, 139)
+        const Color(0xFFFF2D9D), // Bright Deep Pink - RGB(255, 45, 157)
+      ];
+      colorSchemeName = 'pink gradient';
+    }
+    
+    debugPrint('🎨 Starting $colorSchemeName animation');
 
     // Send complete theme pattern to ESP32 ONCE - ESP32 handles the loop!
-    // This matches rgb_light's _sendThemePattern() behavior (lines 552-567)
     final themeData = {
-      'colors': pinkGradientColors
+      'colors': gradientColors
           .map((color) => {'r': color.red, 'g': color.green, 'b': color.blue})
           .toList(),
       'duration': 1200, // Duration per color in milliseconds
@@ -492,10 +540,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       'loop': true, // Loop the animation
     };
 
-    debugPrint('🎨 Sending pink gradient theme pattern to ESP32 (ONCE)');
+    debugPrint('🎨 Sending $colorSchemeName theme pattern to ESP32 (ONCE)');
     _esp32Service.sendTheme(themeData);
 
-    // No more individual color commands - ESP32 handles everything!
     debugPrint('✅ Theme pattern sent - ESP32 will handle the animation loop');
   }
 
@@ -507,6 +554,30 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       _revealFlashCount = 0;
     });
     debugPrint('🛑 Reveal flash animation stopped');
+  }
+
+  /// Debug method to show encrypted gender examples (remove in production)
+  void _showEncryptedExamples() {
+    // Show what encrypted values look like in the console
+    print('\n=== 🔐 ENCRYPTED GENDER EXAMPLES ===');
+    print(
+      'Original "boy" → Encrypted: "${EncryptionService.encryptGender('boy')}"',
+    );
+    print(
+      'Original "girl" → Encrypted: "${EncryptionService.encryptGender('girl')}"',
+    );
+    print('=====================================\n');
+
+    // Show in UI as well
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Encrypted examples printed to console. Check debug output for encrypted values.',
+        ),
+        backgroundColor: Colors.purple,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -2200,7 +2271,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _showResetGenderDialog();
+                    // _showResetGenderDialog();  // Temporarily commented out
+                    print('Reset functionality temporarily disabled');
                   },
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: const Text(
