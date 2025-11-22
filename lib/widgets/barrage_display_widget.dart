@@ -60,23 +60,23 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
     const Duration(seconds: 4),  // Fast
   ];
   
-  /// Available gradient color combinations matching auth screen theme
+  /// Available gradient color combinations - DARKER COLORS for web visibility
   final List<List<Color>> _messageGradients = [
-    // Pink variations
-    [const Color(0xFFFFB6C1), const Color(0xFFFFB6C1)], // Pure pink
-    [const Color(0xFFFFB6C1), Colors.white], // Pink to white
-    [Colors.white, const Color(0xFFFFB6C1)], // White to pink
+    // Darker Pink variations (more visible on web)
+    [const Color(0xFFFF1493), const Color(0xFFFF69B4)], // Deep pink to hot pink
+    [const Color(0xFFDC143C), const Color(0xFF8B0000)], // Crimson to dark red
+    [const Color(0xFFFF6347), const Color(0xFFFF4500)], // Tomato to orange red
     
-    // Blue variations  
-    [const Color(0xFF87CEEB), const Color(0xFF87CEEB)], // Pure blue
-    [const Color(0xFF87CEEB), Colors.white], // Blue to white
-    [Colors.white, const Color(0xFF87CEEB)], // White to blue
+    // Darker Blue variations (more visible on web)
+    [const Color(0xFF0000FF), const Color(0xFF4169E1)], // Blue to royal blue
+    [const Color(0xFF1E90FF), const Color(0xFF0000CD)], // Dodger blue to medium blue
+    [const Color(0xFF00CED1), const Color(0xFF008B8B)], // Dark turquoise to dark cyan
     
-    // Mixed variations
-    [const Color(0xFFFFB6C1), const Color(0xFF87CEEB)], // Pink to blue
-    [const Color(0xFF87CEEB), const Color(0xFFFFB6C1)], // Blue to pink
-    [const Color(0xFFFFB6C1), Colors.white, const Color(0xFF87CEEB)], // Pink-white-blue
-    [const Color(0xFF87CEEB), Colors.white, const Color(0xFFFFB6C1)], // Blue-white-pink
+    // High contrast mixed variations
+    [const Color(0xFFFF1493), const Color(0xFF0000FF)], // Deep pink to blue
+    [const Color(0xFF0000FF), const Color(0xFFFF1493)], // Blue to deep pink
+    [const Color(0xFFFFD700), const Color(0xFFFF8C00)], // Gold to dark orange
+    [const Color(0xFF32CD32), const Color(0xFF006400)], // Lime green to dark green
   ];
 
   @override
@@ -225,19 +225,22 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
         final x = screenWidth * (1 - progress) - 100; // Start off-screen right
         final y = screenHeight * message.track;
         
-        // Fade in/out effect
+        // Fade in/out effect - WEB OPTIMIZED (less aggressive fading)
         double opacity = 1.0;
-        if (progress < 0.1) {
-          opacity = progress / 0.1; // Fade in
-        } else if (progress > 0.9) {
-          opacity = (1.0 - progress) / 0.1; // Fade out
+        if (progress < 0.05) {
+          opacity = progress / 0.05; // Faster fade in
+        } else if (progress > 0.95) {
+          opacity = (1.0 - progress) / 0.05; // Faster fade out
         }
+        
+        // Ensure minimum opacity for web visibility
+        opacity = opacity.clamp(0.7, 1.0);
 
         return Positioned(
           left: x,
           top: y,
           child: Opacity(
-            opacity: opacity.clamp(0.0, 1.0),
+            opacity: opacity,
             child: IntrinsicWidth(
               child: Container(
                 constraints: const BoxConstraints(
@@ -262,12 +265,19 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
                     width: 0,
                   ), // Explicitly no border
                   boxShadow: [
+                    // Enhanced shadow for web visibility
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 12,
+                      spreadRadius: 3,
+                      offset: const Offset(2, 2),
+                    ),
                     BoxShadow(
                       color: message.gradientColors.first.withValues(
-                        alpha: 0.3,
+                        alpha: 0.4,
                       ),
                       blurRadius: 8,
-                      spreadRadius: 2,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
@@ -406,8 +416,9 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
     );
   }
 
-  /// Determine text color for good contrast with gradient background
+  /// Determine text color for good contrast with gradient background - WEB OPTIMIZED
   Color _getContrastTextColor(List<Color> gradientColors) {
+    // For web deployment, use high contrast colors that work reliably
     // Calculate average brightness of the gradient colors
     double totalBrightness = 0.0;
     for (final color in gradientColors) {
@@ -420,8 +431,9 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
     }
     final averageBrightness = totalBrightness / gradientColors.length;
     
-    // Return dark text for light backgrounds, light text for dark backgrounds
-    return averageBrightness > 0.5 ? Colors.black87 : Colors.white;
+    // Use more aggressive contrast for web visibility
+    // Use pure white/black instead of semi-transparent variants
+    return averageBrightness > 0.4 ? Colors.black : Colors.white;
   }
 }
 
