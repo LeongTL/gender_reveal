@@ -18,8 +18,8 @@ class FirestoreService {
   static const String _userLatestVoteCollection = 'userLatestVotes';
   static const String _isRevealedCollection = 'isRevealed';
   static const String _isRevealedDocumentId = 'kpw3afYEF0Q2pVHnZlGg';
-  static const String _babyGenderCollection = 'baby_gender';
-  static const String _babyGenderDocumentId = 'baby_document';
+  static const String _babyGenderCollection = 'z_baby_gender';
+  static const String _babyGenderDocumentId = 'z_baby_document';
 
   /// Creates or updates user document in Firestore
   /// 

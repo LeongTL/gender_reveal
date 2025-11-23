@@ -118,6 +118,103 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Triggers the gender reveal by updating Firestore
   Future<void> _triggerReveal() async {
+    // Show password confirmation dialog with PIN-style input
+    final List<TextEditingController> pinControllers = List.generate(
+      4,
+      (index) => TextEditingController(),
+    );
+    final List<FocusNode> focusNodes = List.generate(4, (index) => FocusNode());
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认揭晓'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('请输入密码以揭晓答案:'),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(4, (index) {
+                return Container(
+                  width: 50,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  child: TextField(
+                    controller: pinControllers[index],
+                    focusNode: focusNodes[index],
+                    textAlign: TextAlign.center,
+                    obscureText: true,
+                    obscuringCharacter: '•',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(1),
+                    ],
+                    maxLength: 1,
+                    onChanged: (value) {
+                      if (value.isNotEmpty && index < 3) {
+                        // Move to next field
+                        focusNodes[index + 1].requestFocus();
+                      } else if (value.isEmpty && index > 0) {
+                        // Move to previous field on backspace
+                        focusNodes[index - 1].requestFocus();
+                      }
+                    },
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              final pin = pinControllers.map((c) => c.text).join();
+              Navigator.of(context).pop(pin == '0405');
+            },
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+
+    // Clean up controllers and focus nodes
+    for (var controller in pinControllers) {
+      controller.dispose();
+    }
+    for (var focusNode in focusNodes) {
+      focusNode.dispose();
+    }
+
+    if (confirmed != true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('密码错误或已取消'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Password is correct, proceed with reveal
     try {
       await FirestoreService.triggerReveal();
     } catch (e) {
@@ -1355,24 +1452,43 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Builds the reveal result (shown after gender is revealed)
   Widget _buildRevealResult() {
-    final isBoy = boyVotes > girlVotes;
-    final resultText = isBoy ? '是男宝宝! 👶' : '是女宝宝! 👧';
-    final resultColor = isBoy ? Colors.blue : Colors.pink;
-    
-    return Text(
-      resultText,
-      style: TextStyle(
-        fontSize: 42,
-        fontWeight: FontWeight.bold,
-        color: resultColor,
-        shadows: const [
-          Shadow(
-            blurRadius: 10.0,
-            color: Colors.white,
-            offset: Offset(2.0, 2.0),
+    // Fetch and decrypt the actual baby gender from Firestore
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: FirestoreService.getBabyGender(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+
+        if (snapshot.hasError) {
+          return Text(
+            '加载失败: ${snapshot.error}',
+            style: const TextStyle(fontSize: 20, color: Colors.red),
+          );
+        }
+
+        final data = snapshot.data;
+        final gender = data?['baby_gender'] as String? ?? 'unknown';
+        final isBoy = gender.toLowerCase() == 'boy';
+        final resultText = isBoy ? '是男宝宝! 👶' : '是女宝宝! 👧';
+        final resultColor = isBoy ? Colors.blue : Colors.pink;
+
+        return Text(
+          resultText,
+          style: TextStyle(
+            fontSize: 42,
+            fontWeight: FontWeight.bold,
+            color: resultColor,
+            shadows: const [
+              Shadow(
+                blurRadius: 10.0,
+                color: Colors.white,
+                offset: Offset(2.0, 2.0),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
