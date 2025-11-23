@@ -60,23 +60,31 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
     const Duration(seconds: 4),  // Fast
   ];
   
-  /// Available gradient color combinations - DARKER COLORS for web visibility
+  /// Available gradient color combinations matching auth screen theme
   final List<List<Color>> _messageGradients = [
-    // Darker Pink variations (more visible on web)
-    [const Color(0xFFFF1493), const Color(0xFFFF69B4)], // Deep pink to hot pink
-    [const Color(0xFFDC143C), const Color(0xFF8B0000)], // Crimson to dark red
-    [const Color(0xFFFF6347), const Color(0xFFFF4500)], // Tomato to orange red
-    
-    // Darker Blue variations (more visible on web)
-    [const Color(0xFF0000FF), const Color(0xFF4169E1)], // Blue to royal blue
-    [const Color(0xFF1E90FF), const Color(0xFF0000CD)], // Dodger blue to medium blue
-    [const Color(0xFF00CED1), const Color(0xFF008B8B)], // Dark turquoise to dark cyan
-    
-    // High contrast mixed variations
-    [const Color(0xFFFF1493), const Color(0xFF0000FF)], // Deep pink to blue
-    [const Color(0xFF0000FF), const Color(0xFFFF1493)], // Blue to deep pink
-    [const Color(0xFFFFD700), const Color(0xFFFF8C00)], // Gold to dark orange
-    [const Color(0xFF32CD32), const Color(0xFF006400)], // Lime green to dark green
+    // Pink variations
+    [const Color(0xFFFFB6C1), const Color(0xFFFFB6C1)], // Pure pink
+    [const Color(0xFFFFB6C1), Colors.white], // Pink to white
+    [Colors.white, const Color(0xFFFFB6C1)], // White to pink
+
+    // Blue variations
+    [const Color(0xFF87CEEB), const Color(0xFF87CEEB)], // Pure blue
+    [const Color(0xFF87CEEB), Colors.white], // Blue to white
+    [Colors.white, const Color(0xFF87CEEB)], // White to blue
+
+    // Mixed variations
+    [const Color(0xFFFFB6C1), const Color(0xFF87CEEB)], // Pink to blue
+    [const Color(0xFF87CEEB), const Color(0xFFFFB6C1)], // Blue to pink
+    [
+      const Color(0xFFFFB6C1),
+      Colors.white,
+      const Color(0xFF87CEEB),
+    ], // Pink-white-blue
+    [
+      const Color(0xFF87CEEB),
+      Colors.white,
+      const Color(0xFFFFB6C1),
+    ], // Blue-white-pin
   ];
 
   @override
@@ -196,15 +204,18 @@ class _BarrageDisplayWidgetState extends State<BarrageDisplayWidget>
   Widget build(BuildContext context) {
     if (!widget.isActive) return const SizedBox.shrink();
 
-    return Positioned.fill(
-      child: Stack(
-        children: [
-          // Barrage messages
-          ..._activeMessages.map(_buildBarrageMessage),
-          
-          // Host controls
-          // _buildHostControls(),
-        ],
+    return IgnorePointer(
+      child: SizedBox.expand(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Barrage messages
+            ..._activeMessages.map(_buildBarrageMessage),
+
+            // Host controls
+            // _buildHostControls(),
+          ],
+        ),
       ),
     );
   }
