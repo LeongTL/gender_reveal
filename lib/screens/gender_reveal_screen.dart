@@ -214,7 +214,25 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       return;
     }
 
-    // Password is correct, proceed with reveal
+    // Password is correct, fetch gender and show countdown animation
+    if (mounted) {
+      try {
+        // Fetch baby gender from database
+        final babyGenderData = await FirestoreService.getBabyGender();
+        final gender =
+            babyGenderData?['baby_gender']?.toString().toLowerCase() ??
+            'unknown';
+
+        // Show countdown with gender information
+        await _showCountdownAnimation(gender);
+      } catch (e) {
+        debugPrint('Error fetching gender for countdown: $e');
+        // Show countdown with unknown gender as fallback
+        await _showCountdownAnimation('unknown');
+      }
+    }
+
+    // After countdown, proceed with reveal
     try {
       await FirestoreService.triggerReveal();
     } catch (e) {
@@ -227,6 +245,17 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         );
       }
     }
+  }
+
+  /// Shows a 10-second countdown animation in the center of the screen
+  Future<void> _showCountdownAnimation(String gender) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return _CountdownDialog(gender: gender);
+      },
+    );
   }
 
   /// Resets the voting event (useful for testing or new events)
@@ -1196,7 +1225,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             children: [
               _buildTitle(),
               const SizedBox(height: 10),
-              _buildVotingChartWithPools(),
+              // Hide voting chart after reveal
+              if (!isRevealed) _buildVotingChartWithPools(),
               const SizedBox(height: 40),
               if (!isRevealed &&
                   AuthService.currentUser?.uid ==
@@ -1513,9 +1543,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Builds the reveal result (shown after gender is revealed)
   Widget _buildRevealResult() {
-    // Fetch and decrypt the actual baby gender from Firestore
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: FirestoreService.getBabyGender(),
+    // Fetch baby gender and voter pools
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        FirestoreService.getBabyGender(),
+        FirestoreService.getVoterPoolsStream().first,
+      ]),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const CircularProgressIndicator();
@@ -1528,26 +1561,141 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
           );
         }
 
-        final data = snapshot.data;
-        final gender = data?['baby_gender'] as String? ?? 'unknown';
-        final isBoy = gender.toLowerCase() == 'boy';
-        final resultText = isBoy ? '是男宝宝! 👶' : '是女宝宝! 👧';
-        final resultColor = isBoy ? Colors.blue : Colors.pink;
+        final genderData = snapshot.data?[0] as Map<String, dynamic>?;
+        final voterData = snapshot.data?[1] as Map<String, dynamic>?;
 
-        return Text(
-          resultText,
-          style: TextStyle(
-            fontSize: 42,
-            fontWeight: FontWeight.bold,
-            color: resultColor,
-            shadows: const [
-              Shadow(
-                blurRadius: 10.0,
-                color: Colors.white,
-                offset: Offset(2.0, 2.0),
+        final gender = genderData?['baby_gender'] as String? ?? 'unknown';
+        final isBoy = gender.toLowerCase() == 'boy';
+        final resultText = isBoy ? '男宝宝 👶' : '女宝宝 👧';
+        final resultColor = isBoy ? Colors.blue : Colors.pink;
+        
+        // Theme colors based on actual gender (opposite of result for "wrong" voters)
+        final themeColor = isBoy
+            ? const Color(
+                0xFFFFB6C1,
+              ) // Light pink (for those who chose girl when it's boy)
+            : const Color(
+                0xFF89CFF0,
+              ); // Light blue (for those who chose boy when it's girl)
+
+        // Get the wrong voters (those who guessed incorrectly)
+        final wrongVoters = isBoy
+            ? List<Map<String, dynamic>>.from(voterData?['girlVoters'] ?? [])
+            : List<Map<String, dynamic>>.from(voterData?['boyVoters'] ?? []);
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            // Move result up a bit
+            const SizedBox(height: 40),
+
+            // Result text
+            Text(
+              resultText,
+              style: TextStyle(
+                fontSize: 42,
+                fontWeight: FontWeight.bold,
+                color: resultColor,
+                shadows: const [
+                  Shadow(
+                    blurRadius: 10.0,
+                    color: Colors.white,
+                    offset: Offset(2.0, 2.0),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 40),
+
+            // Wrong voters section - ALWAYS SHOW
+            Container(
+              constraints: const BoxConstraints(maxWidth: 600),
+              padding: const EdgeInsets.all(24),
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: themeColor, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Warning icon and message with orange beer icon
+                  const Icon(Icons.sports_bar, size: 50, color: Colors.orange),
+                  const SizedBox(height: 12),
+                  Text(
+                    '哎呀，你们猜错了！',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: themeColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '请拿起你们的啤酒，一罐下！🍺',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Wrong voters list or empty message
+                  if (wrongVoters.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        '恭喜！大家都猜对了！🎉',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: wrongVoters.map((voter) {
+                        final userName =
+                            voter['userName'] as String? ?? 'Anonymous';
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: themeColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: themeColor, width: 2),
+                          ),
+                          child: Text(
+                            userName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: themeColor.withValues(alpha: 0.9),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
@@ -2659,5 +2807,215 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         ),
       );
     }
+  }
+}
+
+/// Countdown dialog widget that displays a 10-second countdown animation
+class _CountdownDialog extends StatefulWidget {
+  final String gender;
+
+  const _CountdownDialog({required this.gender});
+
+  @override
+  State<_CountdownDialog> createState() => _CountdownDialogState();
+}
+
+class _CountdownDialogState extends State<_CountdownDialog>
+    with SingleTickerProviderStateMixin {
+  int _currentCount = 10;
+  Timer? _countdownTimer;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool _showResult = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Setup scale animation for the number
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.5).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
+
+    // Start countdown
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _animationController.forward(from: 0);
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _currentCount--;
+      });
+
+      if (_currentCount > 0) {
+        // Reset and replay animation for next number
+        _animationController.forward(from: 0);
+      }
+
+      if (_currentCount <= 0) {
+        timer.cancel();
+        // Show result and keep dialog open (user must close it manually)
+        setState(() {
+          _showResult = true;
+        });
+        _animationController.forward(from: 0);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Determine text based on gender
+    final bool isBoy = widget.gender.toLowerCase() == 'boy';
+    final String resultText = isBoy ? '是男宝宝! 👶' : '是女宝宝! 👧';
+    final String emoji = isBoy ? '👶' : '👧';
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: Stack(
+          children: [
+            Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF89CFF0), // Light blue (baby blue)
+                    Color(0xFFFFB6C1), // Light pink
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Show countdown or result based on state
+                  AnimatedBuilder(
+                    animation: _scaleAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: _showResult
+                            ? Column(
+                                children: [
+                                  Text(
+                                    emoji,
+                                    style: const TextStyle(fontSize: 100),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    resultText,
+                                    style: const TextStyle(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      shadows: [
+                                        Shadow(
+                                          blurRadius: 10.0,
+                                          color: Colors.black26,
+                                          offset: Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                '$_currentCount',
+                                style: const TextStyle(
+                                  fontSize: 120,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  shadows: [
+                                    Shadow(
+                                      blurRadius: 20.0,
+                                      color: Colors.black26,
+                                      offset: Offset(0, 5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      );
+                    },
+                  ),
+                  if (!_showResult) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      '准备揭晓...',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 10.0,
+                            color: Colors.black26,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Close button (X) on top right
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                icon: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.black87,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
