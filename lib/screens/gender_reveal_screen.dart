@@ -2827,6 +2827,8 @@ class _CountdownDialogState extends State<_CountdownDialog>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   bool _showResult = false;
+  bool _showHoldOn = false; // New state for "Hold on..." message
+  int _holdOnCount = 5; // 5 seconds hold on message
 
   @override
   void initState() {
@@ -2850,22 +2852,38 @@ class _CountdownDialogState extends State<_CountdownDialog>
     _animationController.forward(from: 0);
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _currentCount--;
-      });
-
-      if (_currentCount > 0) {
-        // Reset and replay animation for next number
-        _animationController.forward(from: 0);
-      }
-
-      if (_currentCount <= 0) {
-        timer.cancel();
-        // Show result and keep dialog open (user must close it manually)
+      if (!_showHoldOn && !_showResult) {
+        // Phase 1: 10-second countdown (matches light blinking)
         setState(() {
-          _showResult = true;
+          _currentCount--;
         });
-        _animationController.forward(from: 0);
+
+        if (_currentCount > 0) {
+          // Reset and replay animation for next number
+          _animationController.forward(from: 0);
+        }
+
+        if (_currentCount <= 0) {
+          // Switch to "Hold on..." phase (matches light off period)
+          setState(() {
+            _showHoldOn = true;
+          });
+          _animationController.forward(from: 0);
+        }
+      } else if (_showHoldOn && !_showResult) {
+        // Phase 2: 5-second "Hold on..." (matches light off period)
+        setState(() {
+          _holdOnCount--;
+        });
+
+        if (_holdOnCount <= 0) {
+          // Phase 3: Show result (matches solid color start)
+          timer.cancel();
+          setState(() {
+            _showResult = true;
+          });
+          _animationController.forward(from: 0);
+        }
       }
     });
   }
@@ -2914,7 +2932,7 @@ class _CountdownDialogState extends State<_CountdownDialog>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Show countdown or result based on state
+                  // Show countdown, hold on message, or result based on state
                   AnimatedBuilder(
                     animation: _scaleAnimation,
                     builder: (context, child) {
@@ -2945,6 +2963,47 @@ class _CountdownDialogState extends State<_CountdownDialog>
                                   ),
                                 ],
                               )
+                            : _showHoldOn
+                            ? Column(
+                                children: [
+                                  // const Text(
+                                  //   '⏳',
+                                  //   style: TextStyle(fontSize: 80),
+                                  // ),
+                                  // const SizedBox(height: 20),
+                                  const Text(
+                                    'hmm...',
+                                    style: TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      shadows: [
+                                        Shadow(
+                                          blurRadius: 10.0,
+                                          color: Colors.black26,
+                                          offset: Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // Text(
+                                  //   '$_holdOnCount',
+                                  //   style: const TextStyle(
+                                  //     fontSize: 48,
+                                  //     fontWeight: FontWeight.w600,
+                                  //     color: Colors.white70,
+                                  //     shadows: [
+                                  //       Shadow(
+                                  //         blurRadius: 10.0,
+                                  //         color: Colors.black26,
+                                  //         offset: Offset(0, 2),
+                                  //       ),
+                                  //     ],
+                                  //   ),
+                                  // ),
+                                ],
+                              )
                             : Text(
                                 '$_currentCount',
                                 style: const TextStyle(
@@ -2963,7 +3022,7 @@ class _CountdownDialogState extends State<_CountdownDialog>
                       );
                     },
                   ),
-                  if (!_showResult) ...[
+                  if (!_showResult && !_showHoldOn) ...[
                     const SizedBox(height: 20),
                     const Text(
                       '准备揭晓...',
