@@ -31,15 +31,18 @@
 
   <title>gender_reveal</title>
   <link rel="manifest" href="manifest.json">
-
-  <script>
-    // Configure Flutter to use CanvasKit renderer
-    window.flutterConfiguration = {
-      renderer: "canvaskit"
-    };
-  </script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Configure Flutter to use CanvasKit renderer with new initialization API
+    {{flutter_js}}
+    {{flutter_build_config}}
+    
+    _flutter.loader.load({
+      config: {
+        renderer: "canvaskit"
+      }
+    });
+  </script>
 </body>
 </html>
