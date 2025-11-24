@@ -923,6 +923,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     _showUserProfile();
                   } else if (value == 'add_gender') {
                     _showAddGenderDialog();
+                  } else if (value == 'esp32_test') {
+                    _testESP32Light();
+                  } else if (value == 'reveal_theme') {
+                    _sendRevealAnswerTheme();
+                  } else if (value == 'esp32_discovery') {
+                    _showESP32DiscoveryDialog();
                   }
                 },
                 itemBuilder: (context) => [
@@ -1052,6 +1058,66 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       ),
                     ),
                   
+                  // ESP32 Controls (only for admin)
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuDivider(),
+                  
+                  // TEST button
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuItem<String>(
+                      value: 'esp32_test',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline,
+                            color: Colors.purple,
+                          ),
+                          SizedBox(width: 12),
+                          Text('TEST'),
+                        ],
+                      ),
+                    ),
+                  
+                  // Reveal Theme button
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuItem<String>(
+                      value: 'reveal_theme',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome,
+                            color: Colors.teal,
+                          ),
+                          SizedBox(width: 12),
+                          Text('Reveal Theme'),
+                        ],
+                      ),
+                    ),
+                  
+                  // Discovery button
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    PopupMenuItem<String>(
+                      value: 'esp32_discovery',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.settings_input_antenna,
+                            color: Colors.blue,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(_esp32Service.isConnected ? 'Config' : 'Discovery'),
+                        ],
+                      ),
+                    ),
+                  
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuDivider(),
+                  
                   // Sign out option
                   const PopupMenuItem<String>(
                     value: 'signout',
@@ -1137,11 +1203,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
                 _buildRevealButton(),
               if (isRevealed) _buildRevealResult(),
-              const SizedBox(height: 20),
-              // ESP32 TEST and Discovery buttons
-              if (AuthService.currentUser?.uid ==
-                  'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
-                _buildESP32Controls(),
               const SizedBox(height: 20),
               if (snapshot.hasError) _buildErrorMessage(snapshot.error.toString()),
             ],
@@ -1493,58 +1554,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   }
 
   /// Builds ESP32 RGB light control buttons
-  Widget _buildESP32Controls() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        // TEST button
-        ElevatedButton.icon(
-          onPressed: _testESP32Light,
-          icon: const Icon(Icons.lightbulb_outline, size: 18),
-          label: const Text('TEST'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(25),
-            ),
-          ),
-        ),
-        // Reveal Answer theme button
-        ElevatedButton.icon(
-          onPressed: _sendRevealAnswerTheme,
-          icon: const Icon(Icons.auto_awesome, size: 18),
-          label: const Text('Reveal Theme'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.teal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(25),
-            ),
-          ),
-        ),
-        // Discovery button
-        OutlinedButton.icon(
-          onPressed: _showESP32DiscoveryDialog,
-          icon: const Icon(Icons.settings_input_antenna, size: 18),
-          label: Text(_esp32Service.isConnected ? 'Config' : 'Discovery'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white, width: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(25),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   /// Builds error message widget
   Widget _buildErrorMessage(String error) {
     return Container(
