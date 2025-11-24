@@ -282,6 +282,60 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     }
   }
 
+  /// Clear all barrage messages (admin only)
+  Future<void> _clearBarrageMessages() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Clear All Barrage Messages?'),
+          ],
+        ),
+        content: const Text(
+          'This will permanently delete all barrage messages from the database. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await BarrageService.clearAllMessages();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('All barrage messages have been cleared'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to clear barrage messages: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   /// Handle user sign-out
   Future<void> _signOut() async {
     try {
@@ -958,6 +1012,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     _sendRevealAnswerTheme();
                   } else if (value == 'esp32_discovery') {
                     _showESP32DiscoveryDialog();
+                  } else if (value == 'clear_barrage') {
+                    _clearBarrageMessages();
                   }
                 },
                 itemBuilder: (context) => [
@@ -1139,6 +1195,23 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                           ),
                           const SizedBox(width: 12),
                           Text(_esp32Service.isConnected ? 'Config' : 'Discovery'),
+                        ],
+                      ),
+                    ),
+                  
+                  // Clear Barrage Messages button (admin only)
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuItem<String>(
+                      value: 'clear_barrage',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_sweep, color: Colors.orange),
+                          SizedBox(width: 12),
+                          Text(
+                            'Clear Barrage',
+                            style: TextStyle(color: Colors.orange),
+                          ),
                         ],
                       ),
                     ),
@@ -2358,6 +2431,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                         child: Container(
                           margin: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -2367,7 +2441,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                                 color.withValues(alpha: 0.1),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
@@ -2956,7 +3029,7 @@ class _CountdownDialogState extends State<_CountdownDialog>
                                         Shadow(
                                           blurRadius: 10.0,
                                           color: Colors.black26,
-                                          offset: Offset(0, 3),
+                                          offset: Offset(2.0, 2.0),
                                         ),
                                       ],
                                     ),
