@@ -202,20 +202,15 @@ class AuthService {
   
   /// Check if the current user is an admin
   /// 
-  /// In a real app, this would check against a database of admin users.
-  /// For this demo, we'll consider the first user or specific emails as admin.
+  /// Only the user with the specific UID is considered an admin
   static bool isAdmin() {
     final user = currentUser;
     if (user == null) return false;
     
-    // Add your admin logic here
-    // For demo purposes, you could check specific email addresses
-    const adminEmails = [
-      // Add admin email addresses here
-      // 'admin@example.com',
-    ];
+    // Check if the user UID matches the admin UID
+    const adminUID = 'ZtVkO42SpvcIm8yqOkzSbYIBH6s1';
     
-    return adminEmails.contains(user.email);
+    return user.uid == adminUID;
   }
   
   /// Initialize authentication listener
