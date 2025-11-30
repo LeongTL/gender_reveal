@@ -483,33 +483,34 @@ class _VoteScreenState extends State<VoteScreen> {
         ),
       ),
       actions: [
-        // Navigation to results page button
-        IconButton(
-          onPressed: () => context.go('/gender-reveal'),
-          icon: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+        // Navigation to results page button (only visible to admin)
+        if (AuthService.isAdmin())
+          IconButton(
+            onPressed: () => context.go('/gender-reveal'),
+            icon: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.white.withValues(alpha: 0.9),
+                child: Icon(
+                  Icons.bar_chart,
+                  color: Theme.of(context).primaryColor,
+                  size: 22,
                 ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white.withValues(alpha: 0.9),
-              child: Icon(
-                Icons.bar_chart,
-                color: Theme.of(context).primaryColor,
-                size: 22,
               ),
             ),
+            tooltip: 'View Results (Admin Only)',
           ),
-          tooltip: 'View Results',
-        ),
         
         // User profile display with better visibility (matching gender reveal screen)
         Container(
