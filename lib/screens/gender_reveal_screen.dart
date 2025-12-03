@@ -214,8 +214,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       return;
     }
 
-    // Password is correct, fetch gender and show countdown animation
+    // Password is correct, start ESP32 animation FIRST, then show countdown
     if (mounted) {
+      // CRITICAL: Start ESP32 reveal animation BEFORE showing countdown
+      // This ensures LED flashing starts immediately when countdown appears
+      _sendRevealAnswerTheme(); // Fire and forget (no await)
+      
       try {
         // Fetch baby gender from database
         final babyGenderData = await FirestoreService.getBabyGender();
@@ -518,7 +522,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   // So we don't implement it either. The ESP32 theme animation does the work automatically.
 
   /// Send "Reveal Answer" theme animation to ESP32 (alternating pink/blue flashing)
-  /// EXACTLY matches rgb_light implementation: sends initial commands THEN starts flash animation
+  /// Synchronized with countdown timer: 10s blink → 5s blackout → 2s solid → gradient
   Future<void> _sendRevealAnswerTheme() async {
     if (!_esp32Service.isConnected) {
       // Show discovery dialog if not configured
@@ -526,20 +530,36 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       if (!_esp32Service.isConnected) return;
     }
 
-    // Show loading indicator
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🎨 Starting Reveal Answer animation...'),
-        backgroundColor: Colors.blue,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    debugPrint('🎨 Starting ESP32 reveal sequence');
 
-    // CRITICAL: rgb_light calls _sendRevealAnswerCommands() but that method doesn't exist!
-    // So we ONLY start the flash animation (with debouncing like rgb_light does)
-    // The ESP32 theme animation will do the actual work
-    _startRevealFlashAnimation();
+    // PHASE 1: Send 2-color theme for 10-second blinking (countdown phase)
+    final blinkThemeData = {
+      'colors': [
+        {'r': 30, 'g': 144, 'b': 255}, // DodgerBlue
+        {'r': 255, 'g': 20, 'b': 147}, // DeepPink
+      ],
+      'duration': 300, // 300ms per color (fast alternating)
+      'loop': false, // Don't loop
+    };
+
+    debugPrint('🔵💗 Phase 1: 10-second blinking started');
+    _esp32Service.sendTheme(blinkThemeData);
+
+    // Wait 10 seconds (countdown: 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+    await Future.delayed(const Duration(seconds: 10));
+    if (!mounted) return;
+
+    // PHASE 2: Blackout for 5 seconds ("Hold on..." phase)
+    debugPrint('🖤 Phase 2: 5-second blackout started');
+    _esp32Service.setRGB(0, 0, 0);
+
+    // Wait 5 seconds (showing "Hold on...")
+    await Future.delayed(const Duration(seconds: 5));
+    if (!mounted) return;
+
+    // PHASE 3: Show solid color for 2 seconds, then gradient
+    debugPrint('💙💗 Phase 3: Solid color then gradient');
+    await _showSolidRevealColor();
   }
 
   /// Animation state for reveal flashing
