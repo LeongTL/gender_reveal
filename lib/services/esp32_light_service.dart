@@ -4,7 +4,19 @@ import 'package:flutter/foundation.dart';
 
 /// Service for controlling ESP32 RGB light over HTTP (Web only)
 /// Simplified version for gender reveal - only 2 colors (pink/blue)
+/// Singleton pattern ensures configuration is shared across all screens
 class ESP32LightService {
+  // Singleton instance
+  static final ESP32LightService _instance = ESP32LightService._internal();
+
+  // Factory constructor returns the singleton instance
+  factory ESP32LightService() {
+    return _instance;
+  }
+
+  // Private constructor for singleton
+  ESP32LightService._internal();
+  
   String? _deviceIP;
   
   String? get deviceIP => _deviceIP;
@@ -201,6 +213,55 @@ class ESP32LightService {
         debugPrint('   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");');
       }
       
+      return false;
+    }
+  }
+
+  /// Start rainbow effect on ESP32
+  /// Returns true if successful, false otherwise
+  Future<bool> startRainbow() async {
+    if (_deviceIP == null) {
+      debugPrint('No ESP32 device configured');
+      return false;
+    }
+
+    try {
+      final url = 'http://$_deviceIP:80/rainbow';
+      debugPrint('🌈 Starting rainbow effect on ESP32');
+      debugPrint('📡 URL: $url');
+
+      final uri = Uri.parse(url);
+
+      // POST request to start rainbow effect
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Connection': 'close',
+            },
+            body: '{}',
+          )
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('⏱️ ESP32 rainbow request timed out');
+              throw Exception('Request timed out');
+            },
+          );
+
+      debugPrint('📡 ESP32 rainbow response status: ${response.statusCode}');
+      debugPrint('📄 ESP32 rainbow response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ ESP32 rainbow effect started successfully');
+        return true;
+      } else {
+        debugPrint('❌ ESP32 responded with error: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error starting rainbow on ESP32: $e');
       return false;
     }
   }
