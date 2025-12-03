@@ -749,10 +749,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Stop the reveal flash animation
   void _stopRevealFlashAnimation() {
     _revealFlashTimer?.cancel();
-    setState(() {
-      _isRevealAnimating = false;
-      _revealFlashCount = 0;
-    });
+    if (mounted) {
+      setState(() {
+        _isRevealAnimating = false;
+        _revealFlashCount = 0;
+      });
+    }
     debugPrint('🛑 Reveal flash animation stopped');
   }
 

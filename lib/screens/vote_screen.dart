@@ -8,6 +8,7 @@ import '../widgets/firework_animation.dart';
 import '../widgets/barrage_input_widget.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../services/esp32_light_service.dart';
 
 /// Voting screen where users can cast their votes for baby gender prediction
 /// This is now the main screen after authentication
@@ -44,6 +45,9 @@ class _VoteScreenState extends State<VoteScreen> {
 
   /// Video controller for background video
   late VideoPlayerController _videoController;
+
+  /// ESP32 light service for vote celebration effects
+  final ESP32LightService _esp32Service = ESP32LightService();
 
   @override
   void initState() {
@@ -134,6 +138,7 @@ class _VoteScreenState extends State<VoteScreen> {
     if (_lastVoteTime != null &&
         now.difference(_lastVoteTime!) < _voteCooldown) {
       _triggerFireworkAsync(context, color);
+      _triggerVoteCelebration(color);
       return;
     }
 
@@ -147,6 +152,9 @@ class _VoteScreenState extends State<VoteScreen> {
 
     // Trigger firework animation asynchronously (don't block voting)
     _triggerFireworkAsync(context, color);
+    
+    // Trigger ESP32 vote celebration effect (sparkle burst)
+    _triggerVoteCelebration(color);
   }
 
   /// Triggers firework animation asynchronously
@@ -167,6 +175,61 @@ class _VoteScreenState extends State<VoteScreen> {
           _fireworkKey.currentState?.showFirework(Offset(x, y), color);
         }
       }
+    }
+  }
+
+  /// Triggers ESP32 vote celebration effect (running/chasing comet)
+  void _triggerVoteCelebration(Color voteColor) async {
+    if (!_esp32Service.isConnected) {
+      debugPrint('ESP32 not connected, skipping vote celebration effect');
+      return;
+    }
+
+    try {
+      // Use same colors as gender reveal screen for consistency
+      // Boy = DodgerBlue (30, 144, 255), Girl = DeepPink (255, 20, 147)
+      int r, g, b;
+      String colorName;
+
+      // Determine if this is boy (blue-ish) or girl (pink-ish) based on color
+      if (voteColor.blue > voteColor.red) {
+        // Boy - DodgerBlue (matches reveal screen)
+        r = 30;
+        g = 144;
+        b = 255;
+        colorName = 'DodgerBlue';
+      } else {
+        // Girl - DeepPink (matches reveal screen)
+        r = 255;
+        g = 20;
+        b = 147;
+        colorName = 'DeepPink';
+      }
+
+      // Send single color with "running" mode for comet/chasing effect
+      final themeData = {
+        'colors': [
+          {'r': r, 'g': g, 'b': b}, // Hardcoded color
+        ],
+        'mode': 'running', // Special mode for running/chasing effect
+        'duration': 3000, // 3 seconds
+      };
+
+      debugPrint('Sending vote celebration to ESP32:');
+      debugPrint('  Color: $colorName RGB($r, $g, $b)');
+      debugPrint('  Mode: running, Duration: 3000ms');
+
+      final success = await _esp32Service.sendTheme(themeData);
+
+      if (success) {
+        debugPrint(
+          '✅ Vote celebration sent - ESP32 will auto-return to rainbow after 3s',
+        );
+        // Note: ESP32 will automatically return to rainbow mode after the 3-second effect
+        // No need to send a second command (avoids CORS issues in browsers)
+      }
+    } catch (e) {
+      debugPrint('Error triggering vote celebration: $e');
     }
   }
 
@@ -933,7 +996,11 @@ class _VoteScreenState extends State<VoteScreen> {
       onTap: isRevealed
           ? null
           : () {
-              _handleVote(context, const Color(0xFF89CFF0), _voteForBoy);
+              _handleVote(
+                context,
+                const Color(0xFF00BFFF),
+                _voteForBoy,
+              ); // Light blue (DeepSkyBlue)
             },
       child: Container(
         height: 120,
@@ -982,7 +1049,11 @@ class _VoteScreenState extends State<VoteScreen> {
       onTap: isRevealed
           ? null
           : () {
-              _handleVote(context, const Color(0xFFF4C2C2), _voteForGirl);
+              _handleVote(
+                context,
+                const Color(0xFFFFB6C1),
+                _voteForGirl,
+              ); // Light pink (LightPink)
             },
       child: Container(
         height: 120,
