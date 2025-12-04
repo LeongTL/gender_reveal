@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
+import '../services/esp32_light_service.dart';
 
 /// Welcome screen that appears after authentication
 /// 
@@ -38,9 +40,39 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   void initState() {
     super.initState();
     _checkAuthAndRedirect();
+    _initializeESP32(); // Initialize ESP32 with IP from Firestore
     _initializeAnimations();
     _preloadVideo();
     _startWelcomeSequence();
+  }
+
+  /// Initialize ESP32 light service with IP from Firestore
+  ///
+  /// This method runs once when the user arrives at the welcome screen.
+  /// It silently fetches the ESP32 IP address from Firestore and configures
+  /// the ESP32LightService singleton, making it ready for all screens.
+  Future<void> _initializeESP32() async {
+    try {
+      debugPrint('🔧 Initializing ESP32 from Firestore...');
+
+      // Fetch IP from Firestore (esp_config/esp_document)
+      final ip = await FirestoreService.getESP32DeviceIP();
+
+      if (ip != null && ip.isNotEmpty) {
+        // Configure the ESP32 service with the fetched IP
+        ESP32LightService().setDeviceIP(ip);
+        debugPrint('✅ ESP32 initialized successfully with IP: $ip');
+        debugPrint('🎉 ESP32 is ready for all screens!');
+      } else {
+        debugPrint('⚠️ No ESP32 IP found in Firestore');
+        debugPrint(
+          '💡 Users will see an error if they try to use ESP32 features',
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to initialize ESP32: $e');
+      debugPrint('💡 ESP32 features will not work until IP is configured');
+    }
   }
 
   /// Check if user is authenticated, redirect to auth screen if not
