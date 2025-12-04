@@ -448,9 +448,17 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Test ESP32 RGB light with current gender result color
   Future<void> _testESP32Light() async {
     if (!_esp32Service.isConnected) {
-      // Show discovery dialog if not configured
-      await _showESP32DiscoveryDialog();
-      if (!_esp32Service.isConnected) return;
+      // ESP32 not initialized - show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ ESP32 not configured. Please contact admin.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
     }
 
     // Show loading indicator
@@ -525,9 +533,18 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Synchronized with countdown timer: 10s blink → 5s blackout → 2s solid → gradient
   Future<void> _sendRevealAnswerTheme() async {
     if (!_esp32Service.isConnected) {
-      // Show discovery dialog if not configured
-      await _showESP32DiscoveryDialog();
-      if (!_esp32Service.isConnected) return;
+      // ESP32 not initialized - show error message
+      debugPrint('⚠️ ESP32 not configured - cannot send reveal theme');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ ESP32 not configured. Please contact admin.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
     }
 
     debugPrint('🎨 Starting ESP32 reveal sequence');

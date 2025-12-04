@@ -589,4 +589,61 @@ class FirestoreService {
           return data;
         });
   }
+
+  // ========================================
+  // ESP32 Configuration Methods
+  // ========================================
+
+  /// Get ESP32 device IP address from Firestore
+  ///
+  /// Fetches the IP address from the esp_config collection.
+  /// Returns null if the document doesn't exist or deviceIP field is missing.
+  ///
+  /// Structure: esp_config/esp_document -> { deviceIP: "192.168.31.37" }
+  static Future<String?> getESP32DeviceIP() async {
+    try {
+      final doc = await _firestore
+          .collection('esp_config')
+          .doc('esp_document')
+          .get();
+
+      if (doc.exists) {
+        final ip = doc.data()?['deviceIP'] as String?;
+        if (ip != null && ip.isNotEmpty) {
+          print('✅ ESP32 IP fetched from Firestore: $ip');
+          return ip;
+        } else {
+          print('⚠️ ESP32 document exists but deviceIP field is empty');
+          return null;
+        }
+      } else {
+        print('⚠️ ESP32 config document does not exist in Firestore');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Error fetching ESP32 IP from Firestore: $e');
+      return null;
+    }
+  }
+
+  /// Update ESP32 device IP address in Firestore (Admin only)
+  ///
+  /// Updates or creates the IP address in the esp_config collection.
+  /// This allows admins to change the ESP32 IP without code changes.
+  static Future<void> updateESP32DeviceIP(String ip) async {
+    try {
+      await _firestore.collection('esp_config').doc('esp_document').set({
+        'deviceIP': ip,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      print('✅ ESP32 IP updated in Firestore: $ip');
+    } catch (e) {
+      print('❌ Error updating ESP32 IP in Firestore: $e');
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to update ESP32 IP: $e',
+      );
+    }
+  }
 }
