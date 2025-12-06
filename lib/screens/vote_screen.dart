@@ -148,7 +148,7 @@ class _VoteScreenState extends State<VoteScreen> {
 
     // Trigger firework animation asynchronously (don't block voting)
     _triggerFireworkAsync(context, color);
-    
+
     // Trigger ESP32 vote celebration effect (sparkle burst)
     _triggerVoteCelebration(color);
   }
@@ -450,7 +450,7 @@ class _VoteScreenState extends State<VoteScreen> {
       ],
     );
   }
-  
+
   @override
   void dispose() {
     _videoController.dispose();
@@ -549,7 +549,7 @@ class _VoteScreenState extends State<VoteScreen> {
             ),
             tooltip: 'View Results (Admin Only)',
           ),
-        
+
         // User profile display with better visibility (matching gender reveal screen)
         Container(
           margin: const EdgeInsets.only(right: 8),
@@ -613,167 +613,168 @@ class _VoteScreenState extends State<VoteScreen> {
                 ),
                 const SizedBox(width: 12),
               ],
-              
+
               // Enhanced profile menu button (matching gender reveal screen)
               PopupMenuButton<String>(
-          icon: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white.withValues(alpha: 0.9),
-              child: Icon(
-                Icons.person,
-                color: Theme.of(context).primaryColor,
-                size: 22,
-              ),
-            ),
-          ),
-          tooltip: 'User profile',
-          offset: const Offset(0, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          onSelected: (value) {
-            if (value == 'signout') {
-              _signOut();
-            } else if (value == 'profile') {
-              _showUserProfile();
-            }
-          },
-          itemBuilder: (context) => [
-            // Enhanced user info header (matching gender reveal screen)
-            PopupMenuItem<String>(
-              enabled: false,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).primaryColor.withValues(alpha: 0.1),
-                      child: Icon(
-                        Icons.person,
-                        color: Theme.of(context).primaryColor,
-                        size: 28,
+                icon: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.white.withValues(alpha: 0.9),
+                    child: Icon(
+                      Icons.person,
+                      color: Theme.of(context).primaryColor,
+                      size: 22,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                ),
+                tooltip: 'User profile',
+                offset: const Offset(0, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onSelected: (value) {
+                  if (value == 'signout') {
+                    _signOut();
+                  } else if (value == 'profile') {
+                    _showUserProfile();
+                  }
+                },
+                itemBuilder: (context) => [
+                  // Enhanced user info header (matching gender reveal screen)
+                  PopupMenuItem<String>(
+                    enabled: false,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
                         children: [
-                          Text(
-                            displayName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).primaryColor.withValues(alpha: 0.1),
+                            child: Icon(
+                              Icons.person,
+                              color: Theme.of(context).primaryColor,
+                              size: 28,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
-                          if (user?.email != null && !AuthService.isAnonymous)
-                            Text(
-                              user!.email!,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          if (AuthService.isAnonymous)
-                            Row(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.visibility_off,
-                                  size: 12,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 4),
                                 Text(
-                                  'Anonymous Guest',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 12,
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                if (user?.email != null &&
+                                    !AuthService.isAnonymous)
+                                  Text(
+                                    user!.email!,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (AuthService.isAnonymous)
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.visibility_off,
+                                        size: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Anonymous Guest',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AuthService.isAnonymous
+                                        ? Colors.orange.withValues(alpha: 0.1)
+                                        : Colors.green.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AuthService.isAnonymous
+                                          ? Colors.orange.withValues(alpha: 0.3)
+                                          : Colors.green.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    AuthService.isAnonymous
+                                        ? 'Guest Session'
+                                        : 'Authenticated',
+                                    style: TextStyle(
+                                      color: AuthService.isAnonymous
+                                          ? Colors.orange[700]
+                                          : Colors.green[700],
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AuthService.isAnonymous
-                                  ? Colors.orange.withValues(alpha: 0.1)
-                                  : Colors.green.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AuthService.isAnonymous
-                                    ? Colors.orange.withValues(alpha: 0.3)
-                                    : Colors.green.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Text(
-                              AuthService.isAnonymous
-                                  ? 'Guest Session'
-                                  : 'Authenticated',
-                              style: TextStyle(
-                                color: AuthService.isAnonymous
-                                    ? Colors.orange[700]
-                                    : Colors.green[700],
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const PopupMenuDivider(),
-            
-            // View Profile option
-            const PopupMenuItem<String>(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.account_circle_outlined),
-                  SizedBox(width: 12),
-                  Text('View Profile'),
+                  ),
+                  const PopupMenuDivider(),
+
+                  // View Profile option
+                  const PopupMenuItem<String>(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        Icon(Icons.account_circle_outlined),
+                        SizedBox(width: 12),
+                        Text('View Profile'),
+                      ],
+                    ),
+                  ),
+
+                  // Sign out option
+                  const PopupMenuItem<String>(
+                    value: 'signout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text('Sign Out', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-            
-            // Sign out option
-            const PopupMenuItem<String>(
-              value: 'signout',
-              child: Row(
-                children: [
-                  Icon(Icons.logout, color: Colors.red),
-                  SizedBox(width: 12),
-                  Text('Sign Out', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-        ),
             ],
           ),
         ),
@@ -948,6 +949,76 @@ class _VoteScreenState extends State<VoteScreen> {
 
   /// Builds the voting interface with boy and girl options
   Widget _buildVotingInterface() {
+    // If revealed, show thank you message instead of vote buttons
+    if (isRevealed) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFFFFD700).withValues(alpha: 0.3),
+                const Color(0xFFFFA500).withValues(alpha: 0.2),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🎉', style: TextStyle(fontSize: 64)),
+              const SizedBox(height: 16),
+              const Text(
+                '感谢大家的参与！',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFF6B9D),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '答案已经揭晓啦～\n谢谢你们的祝福和陪伴 💕',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '✨ 让我们一起期待小宝贝的到来 ✨',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFFFFD700),
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Otherwise, show vote buttons
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 32),
