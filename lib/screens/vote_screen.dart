@@ -8,7 +8,6 @@ import '../widgets/firework_animation.dart';
 import '../widgets/barrage_input_widget.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
-import '../services/esp32_light_service.dart';
 
 /// Voting screen where users can cast their votes for baby gender prediction
 /// This is now the main screen after authentication
@@ -45,9 +44,6 @@ class _VoteScreenState extends State<VoteScreen> {
 
   /// Video controller for background video
   late VideoPlayerController _videoController;
-
-  /// ESP32 light service for vote celebration effects
-  final ESP32LightService _esp32Service = ESP32LightService();
 
   @override
   void initState() {
@@ -180,54 +176,33 @@ class _VoteScreenState extends State<VoteScreen> {
 
   /// Triggers ESP32 vote celebration effect (running/chasing comet)
   void _triggerVoteCelebration(Color voteColor) async {
-    if (!_esp32Service.isConnected) {
-      debugPrint('ESP32 not connected, skipping vote celebration effect');
-      return;
-    }
-
     try {
       // Use same colors as gender reveal screen for consistency
       // Boy = DodgerBlue (30, 144, 255), Girl = DeepPink (255, 20, 147)
-      int r, g, b;
-      String colorName;
+      String effectName;
 
       // Determine if this is boy (blue-ish) or girl (pink-ish) based on color
       if (voteColor.blue > voteColor.red) {
-        // Boy - DodgerBlue (matches reveal screen)
-        r = 30;
-        g = 144;
-        b = 255;
-        colorName = 'DodgerBlue';
+        // Boy - send blue comet effect
+        effectName = 'comet_blue';
+        debugPrint('Sending vote celebration: Blue Comet (Boy vote)');
       } else {
-        // Girl - DeepPink (matches reveal screen)
-        r = 255;
-        g = 20;
-        b = 147;
-        colorName = 'DeepPink';
+        // Girl - send pink comet effect
+        effectName = 'comet_pink';
+        debugPrint('Sending vote celebration: Pink Comet (Girl vote)');
       }
 
-      // Send single color with "running" mode for comet/chasing effect
-      final themeData = {
-        'colors': [
-          {'r': r, 'g': g, 'b': b}, // Hardcoded color
-        ],
-        'mode': 'running', // Special mode for running/chasing effect
-        'duration': 3000, // 3 seconds
-      };
+      // Send effect command to Realtime Database (instant push notification to ESP32!)
+      await FirestoreService.sendEffectCommand(
+        effectName,
+        50, // speed (update interval in ms)
+        255, // brightness
+        duration: 3000, // 3 seconds total duration for comet effect
+      );
 
-      debugPrint('Sending vote celebration to ESP32:');
-      debugPrint('  Color: $colorName RGB($r, $g, $b)');
-      debugPrint('  Mode: running, Duration: 3000ms');
-
-      final success = await _esp32Service.sendTheme(themeData);
-
-      if (success) {
-        debugPrint(
-          '✅ Vote celebration sent - ESP32 will auto-return to rainbow after 3s',
-        );
-        // Note: ESP32 will automatically return to rainbow mode after the 3-second effect
-        // No need to send a second command (avoids CORS issues in browsers)
-      }
+      debugPrint(
+        '✅ Vote celebration sent to Realtime Database - ESP32 will receive instantly via push notification!',
+      );
     } catch (e) {
       debugPrint('Error triggering vote celebration: $e');
     }

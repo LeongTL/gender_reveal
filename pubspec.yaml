@@ -39,6 +39,7 @@ dependencies:
   firebase_core: ^3.15.2
   cloud_firestore: ^5.4.4
   firebase_auth: ^5.7.0
+  firebase_database: ^11.1.4  # Realtime Database for ESP32 commands
   
   # Image picker for profile picture functionality
   image_picker: ^1.0.4

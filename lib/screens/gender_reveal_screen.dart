@@ -26,17 +26,17 @@ class GenderRevealScreen extends StatefulWidget {
 class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Current number of votes for boy prediction
   int boyVotes = 0;
-  
+
   /// Current number of votes for girl prediction
   int girlVotes = 0;
-  
+
   /// Previous vote counts to detect changes for firework triggers
   int _previousBoyVotes = 0;
   int _previousGirlVotes = 0;
-  
+
   /// Whether the gender has been revealed
   bool isRevealed = false;
-  
+
   /// Stream subscription for Firestore updates
   late Stream<Map<String, dynamic>> _firestoreStream;
 
@@ -46,7 +46,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Global key to access the firework overlay
   final GlobalKey<FireworkOverlayState> _fireworkKey =
       GlobalKey<FireworkOverlayState>();
-  
+
   /// Video controller for background video
   late VideoPlayerController _videoController;
 
@@ -219,7 +219,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       // CRITICAL: Start ESP32 reveal animation BEFORE showing countdown
       // This ensures LED flashing starts immediately when countdown appears
       _sendRevealAnswerTheme(); // Fire and forget (no await)
-      
+
       try {
         // Fetch baby gender from database
         final babyGenderData = await FirestoreService.getBabyGender();
@@ -532,51 +532,52 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Send "Reveal Answer" theme animation to ESP32 (alternating pink/blue flashing)
   /// Synchronized with countdown timer: 10s blink → 5s blackout → 2s solid → gradient
   Future<void> _sendRevealAnswerTheme() async {
-    if (!_esp32Service.isConnected) {
-      // ESP32 not initialized - show error message
-      debugPrint('⚠️ ESP32 not configured - cannot send reveal theme');
+    debugPrint('🎨 Starting ESP32 reveal sequence');
+
+    try {
+      // Get baby gender from database first
+      final babyGenderData = await FirestoreService.getBabyGender();
+      final babyGender =
+          babyGenderData?['baby_gender']?.toString().toLowerCase() ?? 'girl';
+
+      debugPrint('👶 Baby gender: $babyGender');
+
+      // PHASE 1: 10-second blinking countdown with blue/pink alternating
+      debugPrint('🔵💗 Phase 1: 10-second blinking started');
+      await FirestoreService.sendBlinkingCommand(
+        10000, // 10 seconds duration
+        255, // brightness
+      );
+
+      debugPrint('✅ Blinking command sent to Realtime Database!');
+
+      // Wait 10 seconds (countdown: 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+      await Future.delayed(const Duration(seconds: 10));
+      if (!mounted) return;
+
+      // PHASE 2: Blackout for 5 seconds ("Hold on..." phase)
+      debugPrint('🖤 Phase 2: 5-second blackout started');
+      await FirestoreService.sendTurnOffCommand();
+
+      // Wait 5 seconds (showing "Hold on...")
+      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+
+      // PHASE 3: Show solid gender color (PERMANENT)
+      debugPrint('💙💗 Phase 3: Showing solid gender color [PERMANENT]');
+      await FirestoreService.sendThemeCommand(babyGender, 255, permanent: true);
+    } catch (e) {
+      debugPrint('❌ Error in reveal sequence: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ ESP32 not configured. Please contact admin.'),
+          SnackBar(
+            content: Text('⚠️ Error sending reveal commands: $e'),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
-      return;
     }
-
-    debugPrint('🎨 Starting ESP32 reveal sequence');
-
-    // PHASE 1: Send 2-color theme for 10-second blinking (countdown phase)
-    final blinkThemeData = {
-      'colors': [
-        {'r': 30, 'g': 144, 'b': 255}, // DodgerBlue
-        {'r': 255, 'g': 20, 'b': 147}, // DeepPink
-      ],
-      'duration': 300, // 300ms per color (fast alternating)
-      'loop': false, // Don't loop
-    };
-
-    debugPrint('🔵💗 Phase 1: 10-second blinking started');
-    _esp32Service.sendTheme(blinkThemeData);
-
-    // Wait 10 seconds (countdown: 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
-    await Future.delayed(const Duration(seconds: 10));
-    if (!mounted) return;
-
-    // PHASE 2: Blackout for 5 seconds ("Hold on..." phase)
-    debugPrint('🖤 Phase 2: 5-second blackout started');
-    _esp32Service.setRGB(0, 0, 0);
-
-    // Wait 5 seconds (showing "Hold on...")
-    await Future.delayed(const Duration(seconds: 5));
-    if (!mounted) return;
-
-    // PHASE 3: Show solid color for 2 seconds, then gradient
-    debugPrint('💙💗 Phase 3: Solid color then gradient');
-    await _showSolidRevealColor();
   }
 
   /// Animation state for reveal flashing
@@ -664,12 +665,14 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     try {
       // Get baby gender from database
       final babyGenderData = await FirestoreService.getBabyGender();
-      final babyGender = babyGenderData?['baby_gender']?.toString().toLowerCase();
-      
+      final babyGender = babyGenderData?['baby_gender']
+          ?.toString()
+          .toLowerCase();
+
       // Determine colors based on database value
       Color solidColor;
       String genderName;
-      
+
       if (babyGender == 'boy') {
         solidColor = const Color(0xFF1E90FF); // DodgerBlue
         genderName = 'boy (blue)';
@@ -682,13 +685,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         genderName = 'default (pink)';
         debugPrint('⚠️ No baby gender found in database, defaulting to pink');
       }
-      
+
       debugPrint('🎨 Showing solid $genderName for 2 seconds');
-      _esp32Service.setRGB(
-        solidColor.red,
-        solidColor.green,
-        solidColor.blue,
-      );
+      _esp32Service.setRGB(solidColor.red, solidColor.green, solidColor.blue);
 
       // After 2 seconds, start gradient animation
       _revealFlashTimer = Timer(const Duration(seconds: 2), () {
@@ -706,7 +705,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         fallbackPink.green,
         fallbackPink.blue,
       );
-      
+
       // After 2 seconds, start pink gradient animation
       _revealFlashTimer = Timer(const Duration(seconds: 2), () {
         if (_isRevealAnimating && mounted) {
@@ -720,7 +719,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   void _startGradientAnimation(String? babyGender) {
     List<Color> gradientColors;
     String colorSchemeName;
-    
+
     if (babyGender == 'boy') {
       // BLUE gradient (rich, saturated blues)
       gradientColors = [
@@ -744,7 +743,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ];
       colorSchemeName = 'pink gradient';
     }
-    
+
     debugPrint('🎨 Starting $colorSchemeName animation');
 
     // Send complete theme pattern to ESP32 ONCE - ESP32 handles the loop!
@@ -890,14 +889,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   PreferredSizeWidget _buildAppBar() {
     final User? user = AuthService.currentUser;
     final String displayName = AuthService.getUserDisplayName(user);
-    
+
     return AppBar(
       title: const Text(
         '宝宝性别揭晓派对',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
       ),
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -941,7 +937,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
           ),
           tooltip: 'Back to voting',
         ),
-        
+
         // User profile display with better visibility
         Container(
           margin: const EdgeInsets.only(right: 8),
@@ -1005,16 +1001,13 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 ),
                 const SizedBox(width: 12),
               ],
-              
+
               // Enhanced profile menu button
               PopupMenuButton<String>(
                 icon: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 2,
-                    ),
+                    border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.3),
@@ -1065,7 +1058,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                         children: [
                           CircleAvatar(
                             radius: 24,
-                            backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).primaryColor.withValues(alpha: 0.1),
                             child: Icon(
                               Icons.person,
                               color: Theme.of(context).primaryColor,
@@ -1086,7 +1081,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
-                                if (user?.email != null && !AuthService.isAnonymous)
+                                if (user?.email != null &&
+                                    !AuthService.isAnonymous)
                                   Text(
                                     user!.email!,
                                     style: TextStyle(
@@ -1120,20 +1116,22 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AuthService.isAnonymous 
+                                    color: AuthService.isAnonymous
                                         ? Colors.orange.withValues(alpha: 0.1)
                                         : Colors.green.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AuthService.isAnonymous 
+                                      color: AuthService.isAnonymous
                                           ? Colors.orange.withValues(alpha: 0.3)
                                           : Colors.green.withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Text(
-                                    AuthService.isAnonymous ? 'Guest Session' : 'Authenticated',
+                                    AuthService.isAnonymous
+                                        ? 'Guest Session'
+                                        : 'Authenticated',
                                     style: TextStyle(
-                                      color: AuthService.isAnonymous 
+                                      color: AuthService.isAnonymous
                                           ? Colors.orange[700]
                                           : Colors.green[700],
                                       fontSize: 10,
@@ -1149,7 +1147,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     ),
                   ),
                   const PopupMenuDivider(),
-                  
+
                   // View Profile option
                   const PopupMenuItem<String>(
                     value: 'profile',
@@ -1161,7 +1159,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       ],
                     ),
                   ),
-                  
+
                   // Add Gender option (only for specific user)
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
@@ -1181,12 +1179,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                         ],
                       ),
                     ),
-                  
+
                   // ESP32 Controls (only for admin)
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
                     const PopupMenuDivider(),
-                  
+
                   // TEST button
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
@@ -1194,16 +1192,13 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       value: 'esp32_test',
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.lightbulb_outline,
-                            color: Colors.purple,
-                          ),
+                          Icon(Icons.lightbulb_outline, color: Colors.purple),
                           SizedBox(width: 12),
                           Text('TEST'),
                         ],
                       ),
                     ),
-                  
+
                   // Reveal Theme button
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
@@ -1211,16 +1206,13 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       value: 'reveal_theme',
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.auto_awesome,
-                            color: Colors.teal,
-                          ),
+                          Icon(Icons.auto_awesome, color: Colors.teal),
                           SizedBox(width: 12),
                           Text('Reveal Theme'),
                         ],
                       ),
                     ),
-                  
+
                   // Discovery button
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
@@ -1233,11 +1225,13 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                             color: Colors.blue,
                           ),
                           const SizedBox(width: 12),
-                          Text(_esp32Service.isConnected ? 'Config' : 'Discovery'),
+                          Text(
+                            _esp32Service.isConnected ? 'Config' : 'Discovery',
+                          ),
                         ],
                       ),
                     ),
-                  
+
                   // Clear Barrage Messages button (admin only)
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
@@ -1254,11 +1248,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                         ],
                       ),
                     ),
-                  
+
                   if (AuthService.currentUser?.uid ==
                       'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
                     const PopupMenuDivider(),
-                  
+
                   // Sign out option
                   const PopupMenuItem<String>(
                     value: 'signout',
@@ -1266,10 +1260,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                       children: [
                         Icon(Icons.logout, color: Colors.red),
                         SizedBox(width: 12),
-                        Text(
-                          'Sign Out',
-                          style: TextStyle(color: Colors.red),
-                        ),
+                        Text('Sign Out', style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),
@@ -1286,9 +1277,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Builds the semi-transparent overlay for better text visibility
   Widget _buildOverlay() {
     return Positioned.fill(
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.4),
-      ),
+      child: Container(color: Colors.black.withValues(alpha: 0.4)),
     );
   }
 
@@ -1306,32 +1295,36 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
           if (snapshot.hasData) {
             print('StreamBuilder data: ${snapshot.data}');
           }
-          
+
           // Update local state from Firestore data and trigger fireworks for new votes
           if (snapshot.hasData) {
             final data = snapshot.data!;
             final newBoyVotes = data['boyVotes'] ?? 0;
             final newGirlVotes = data['girlVotes'] ?? 0;
             final newIsRevealed = data['isRevealed'] ?? false;
-            
+
             // Detect vote increases and trigger fireworks
             if (newBoyVotes > _previousBoyVotes) {
-              _triggerFireworkForVoteIncrease(const Color(0xFF6BB6FF)); // Blue for boy
+              _triggerFireworkForVoteIncrease(
+                const Color(0xFF6BB6FF),
+              ); // Blue for boy
             }
             if (newGirlVotes > _previousGirlVotes) {
-              _triggerFireworkForVoteIncrease(const Color(0xFFFF8FA3)); // Pink for girl
+              _triggerFireworkForVoteIncrease(
+                const Color(0xFFFF8FA3),
+              ); // Pink for girl
             }
-            
+
             // Update previous votes for next comparison
             _previousBoyVotes = boyVotes;
             _previousGirlVotes = girlVotes;
-            
+
             // Update current votes and state
             boyVotes = newBoyVotes;
             girlVotes = newGirlVotes;
             isRevealed = newIsRevealed;
           }
-          
+
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1346,13 +1339,15 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 _buildRevealButton(),
               if (isRevealed) _buildRevealResult(),
               const SizedBox(height: 20),
-              if (snapshot.hasError) _buildErrorMessage(snapshot.error.toString()),
+              if (snapshot.hasError)
+                _buildErrorMessage(snapshot.error.toString()),
             ],
           );
         },
       ),
     );
   }
+
   /// Builds the main title
   Widget _buildTitle() {
     return const Text(
@@ -1378,7 +1373,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
     final maxVotes = math.max(boyVotes, girlVotes);
     final baseHeight = 60.0;
     final maxBarHeight = 180.0;
-    
+
     // Calculate bar heights with minimum height for visibility
     final boyBarHeight = total > 0
         ? baseHeight + (boyVotes / (maxVotes > 0 ? maxVotes : 1)) * maxBarHeight
@@ -1414,7 +1409,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   isLeft: true,
                   maxHeight: maxBarHeight + baseHeight,
                 ),
-                
+
                 const SizedBox(width: 100),
                 // Girl votes - Pink bunny bar
                 _buildEnhancedAnimalBar(
@@ -1642,14 +1637,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         backgroundColor: Colors.amber,
         foregroundColor: Colors.black,
         padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
-      child: const Text(
-        '揭晓答案!',
-        style: TextStyle(fontSize: 20),
-      ),
+      child: const Text('揭晓答案!', style: TextStyle(fontSize: 20)),
     );
   }
 
@@ -1680,7 +1670,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         final isBoy = gender.toLowerCase() == 'boy';
         final resultText = isBoy ? '男宝宝 👶' : '女宝宝 👧';
         final resultColor = isBoy ? Colors.blue : Colors.pink;
-        
+
         // Theme colors based on actual gender (opposite of result for "wrong" voters)
         final themeColor = isBoy
             ? const Color(
@@ -1823,10 +1813,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         color: Colors.red.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        'Error: $error',
-        style: const TextStyle(color: Colors.white),
-      ),
+      child: Text('Error: $error', style: const TextStyle(color: Colors.white)),
     );
   }
 
@@ -1879,13 +1866,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   void _showUserProfile() {
     final User? user = AuthService.currentUser;
     final String displayName = AuthService.getUserDisplayName(user);
-    
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
           padding: const EdgeInsets.all(24),
           constraints: const BoxConstraints(maxWidth: 400),
@@ -1903,10 +1888,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   const SizedBox(width: 12),
                   const Text(
                     'User Profile',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
@@ -1916,9 +1898,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Profile picture
               Container(
                 decoration: BoxDecoration(
@@ -1939,7 +1921,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   child: Container(
                     width: 100,
                     height: 100,
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).primaryColor.withValues(alpha: 0.1),
                     child: Icon(
                       Icons.person,
                       color: Theme.of(context).primaryColor,
@@ -1948,9 +1932,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // User name
               Text(
                 displayName,
@@ -1960,22 +1944,19 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               // User email or status
               if (user?.email != null && !AuthService.isAnonymous)
                 Text(
                   user!.email!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Authentication status
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -1983,12 +1964,12 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AuthService.isAnonymous 
+                  color: AuthService.isAnonymous
                       ? Colors.orange.withValues(alpha: 0.1)
                       : Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: AuthService.isAnonymous 
+                    color: AuthService.isAnonymous
                         ? Colors.orange.withValues(alpha: 0.3)
                         : Colors.green.withValues(alpha: 0.3),
                   ),
@@ -1997,19 +1978,21 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      AuthService.isAnonymous 
-                          ? Icons.visibility_off 
+                      AuthService.isAnonymous
+                          ? Icons.visibility_off
                           : Icons.verified_user,
                       size: 16,
-                      color: AuthService.isAnonymous 
+                      color: AuthService.isAnonymous
                           ? Colors.orange[700]
                           : Colors.green[700],
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      AuthService.isAnonymous ? 'Anonymous Guest' : 'Authenticated User',
+                      AuthService.isAnonymous
+                          ? 'Anonymous Guest'
+                          : 'Authenticated User',
                       style: TextStyle(
-                        color: AuthService.isAnonymous 
+                        color: AuthService.isAnonymous
                             ? Colors.orange[700]
                             : Colors.green[700],
                         fontWeight: FontWeight.w600,
@@ -2018,9 +2001,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // User details
               Container(
                 padding: const EdgeInsets.all(16),
@@ -2039,7 +2022,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     _buildProfileDetailRow(
                       icon: Icons.access_time,
                       label: 'Account Created',
-                      value: user?.metadata.creationTime != null 
+                      value: user?.metadata.creationTime != null
                           ? '${user!.metadata.creationTime!.day}/${user.metadata.creationTime!.month}/${user.metadata.creationTime!.year}'
                           : 'Unknown',
                     ),
@@ -2047,16 +2030,16 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     _buildProfileDetailRow(
                       icon: Icons.login,
                       label: 'Last Sign In',
-                      value: user?.metadata.lastSignInTime != null 
+                      value: user?.metadata.lastSignInTime != null
                           ? '${user!.metadata.lastSignInTime!.day}/${user.metadata.lastSignInTime!.month}/${user.metadata.lastSignInTime!.year}'
                           : 'Unknown',
                     ),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Action buttons
               Row(
                 children: [
@@ -2094,7 +2077,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
     );
   }
-  
+
   /// Helper method to build profile detail rows
   Widget _buildProfileDetailRow({
     required IconData icon,
@@ -2103,11 +2086,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   }) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Colors.grey[600],
-        ),
+        Icon(icon, size: 16, color: Colors.grey[600]),
         const SizedBox(width: 8),
         Expanded(
           flex: 2,
@@ -2124,10 +2103,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
           flex: 3,
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             overflow: TextOverflow.ellipsis,
           ),
         ),
