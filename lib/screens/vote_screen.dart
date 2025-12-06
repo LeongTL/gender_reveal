@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'dart:math' as math;
 import '../widgets/firework_animation.dart';
 import '../widgets/barrage_input_widget.dart';
@@ -204,7 +207,22 @@ class _VoteScreenState extends State<VoteScreen> {
         '✅ Vote celebration sent to Realtime Database - ESP32 will receive instantly via push notification!',
       );
     } catch (e) {
-      debugPrint('Error triggering vote celebration: $e');
+      debugPrint('❌ Error triggering vote celebration: $e');
+      // Show error message to user on tablet/mobile
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ 无法发送灯光效果 / Could not send light effect: $e'),
+            backgroundColor: Colors.orange[700],
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: '重试/Retry',
+              textColor: Colors.white,
+              onPressed: () => _triggerVoteCelebration(voteColor),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -521,6 +539,14 @@ class _VoteScreenState extends State<VoteScreen> {
         ),
       ),
       actions: [
+        // Database test button (admin only) - for debugging
+        if (AuthService.isAdmin())
+          IconButton(
+            onPressed: _testDatabaseConnection,
+            icon: const Icon(Icons.bug_report, color: Colors.white),
+            tooltip: 'Test Database Connection',
+          ),
+
         // Navigation to results page button (only visible to admin)
         if (AuthService.isAdmin())
           IconButton(
@@ -1389,5 +1415,204 @@ class _VoteScreenState extends State<VoteScreen> {
         );
       }
     }
+  }
+
+  /// Tests the database connection (admin only)
+  Future<void> _testDatabaseConnection() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          margin: EdgeInsets.all(32),
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Testing database connection...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      debugPrint('🧪 TEST: Starting database connection test...');
+
+      // Test 1: Check authentication
+      final currentUser = AuthService.currentUser;
+      final authTest = currentUser != null;
+      debugPrint('🧪 TEST 1 - Authentication: ${authTest ? "✅ PASS" : "❌ FAIL"}');
+
+      // Test 2: Check database URL
+      final dbUrl = FirebaseDatabase.instance.app.options.databaseURL;
+      final dbUrlTest = dbUrl != null && dbUrl.isNotEmpty;
+      debugPrint('🧪 TEST 2 - Database URL configured: ${dbUrlTest ? "✅ PASS ($dbUrl)" : "❌ FAIL"}');
+
+      // Test 3: Try to read from database (via REST API)
+      bool readTest = false;
+      String? readError;
+      try {
+        if (dbUrl != null && currentUser != null) {
+          final idToken = await currentUser.getIdToken();
+          final url = Uri.parse('$dbUrl/esp32_commands.json?auth=$idToken&limitToLast=1');
+          final response = await http.get(url);
+          readTest = response.statusCode == 200;
+          debugPrint('🧪 TEST 3 - Database read: ${readTest ? "✅ PASS" : "❌ FAIL (HTTP ${response.statusCode})"}');
+        }
+      } catch (e) {
+        readError = e.toString();
+        debugPrint('🧪 TEST 3 - Database read: ❌ FAIL - $e');
+      }
+
+      // Test 4: Try to write to database (via REST API)
+      bool writeTest = false;
+      String? writeError;
+      String? testKey;
+      try {
+        if (dbUrl != null && currentUser != null) {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          testKey = '-Test$timestamp';
+          final idToken = await currentUser.getIdToken();
+          
+          final url = Uri.parse('$dbUrl/test_connection/$testKey.json?auth=$idToken');
+          final response = await http.put(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'timestamp': timestamp,
+              'user': currentUser.uid,
+              'test': 'connection_test',
+            }),
+          );
+          
+          writeTest = response.statusCode == 200 || response.statusCode == 201;
+          debugPrint('🧪 TEST 4 - Database write: ${writeTest ? "✅ PASS (key: $testKey)" : "❌ FAIL (HTTP ${response.statusCode})"}');
+
+          // Clean up test data
+          if (writeTest) {
+            await http.delete(url);
+            debugPrint('🧪 TEST 4 - Cleanup: ✅ DONE');
+          }
+        }
+      } catch (e) {
+        writeError = e.toString();
+        debugPrint('🧪 TEST 4 - Database write: ❌ FAIL - $e');
+      }
+
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Show results
+      if (mounted) {
+        final allPassed = authTest && dbUrlTest && readTest && writeTest;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  allPassed ? Icons.check_circle : Icons.error,
+                  color: allPassed ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                const Text('Connection Test'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTestRow('Authentication', authTest),
+                  _buildTestRow('Database URL', dbUrlTest),
+                  _buildTestRow('Read Permission', readTest),
+                  _buildTestRow('Write Permission', writeTest),
+                  const Divider(height: 24),
+                  Text(
+                    'User: ${currentUser?.uid ?? "Not authenticated"}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Database: $dbUrl',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  if (readError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Read Error: $readError',
+                      style: const TextStyle(fontSize: 10, color: Colors.red),
+                    ),
+                  ],
+                  if (writeError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Write Error: $writeError',
+                      style: const TextStyle(fontSize: 10, color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              if (!allPassed)
+                TextButton(
+                  onPressed: () => _testDatabaseConnection(),
+                  child: const Text('Retry'),
+                ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Test failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      debugPrint('🧪 TEST: Fatal error - $e');
+    }
+  }
+
+  /// Build a test result row widget
+  Widget _buildTestRow(String label, bool passed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            passed ? Icons.check_circle : Icons.cancel,
+            color: passed ? Colors.green : Colors.red,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: passed ? Colors.green[700] : Colors.red[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

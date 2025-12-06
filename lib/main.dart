@@ -31,6 +31,9 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     firebaseInitialized = true;
+    
+    // Note: We use REST API for Realtime Database on web, so no need to call goOnline()
+    debugPrint('✅ Firebase initialized successfully');
   } catch (e) {
     // Handle Firebase initialization errors gracefully
     debugPrint('Firebase initialization failed: $e');
