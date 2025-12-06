@@ -857,21 +857,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
               },
             ),
           ),
-
-          // Reset button in top-right corner (for testing) - positioned above barrage
-          Positioned(
-            top:
-                AppBar().preferredSize.height +
-                MediaQuery.of(context).padding.top +
-                10,
-            right: 20,
-            child: FloatingActionButton(
-              mini: true,
-              onPressed: _resetEvent,
-              backgroundColor: Colors.grey.withValues(alpha: 0.7),
-              child: const Icon(Icons.refresh),
-            ),
-          ),
         ],
       ),
     );
@@ -1038,6 +1023,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                     _showUserProfile();
                   } else if (value == 'add_gender') {
                     _showAddGenderDialog();
+                  } else if (value == 'reset_event') {
+                    _resetEvent();
                   } else if (value == 'esp32_test') {
                     _testESP32Light();
                   } else if (value == 'reveal_theme') {
@@ -1175,6 +1162,23 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                           Text(
                             'Add Gender',
                             style: TextStyle(color: Colors.purple),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Reset Event option (only for specific user)
+                  if (AuthService.currentUser?.uid ==
+                      'ZtVkO42SpvcIm8yqOkzSbYIBH6s1')
+                    const PopupMenuItem<String>(
+                      value: 'reset_event',
+                      child: Row(
+                        children: [
+                          Icon(Icons.refresh, color: Colors.orange),
+                          SizedBox(width: 12),
+                          Text(
+                            'Reset Event',
+                            style: TextStyle(color: Colors.orange),
                           ),
                         ],
                       ),
@@ -2409,7 +2413,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                         0,
                       ),
                       child: Container(
-                        height: animatedHeight - 45,
+                        height: math.max(0, animatedHeight - 45),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,

@@ -186,6 +186,14 @@ class FirestoreService {
         await doc.reference.delete();
       }
 
+      // Clear all user latest votes (voter names)
+      final userLatestVotesQuery = await _firestore
+          .collection(_userLatestVoteCollection)
+          .get();
+      for (final doc in userLatestVotesQuery.docs) {
+        await doc.reference.delete();
+      }
+
       // Reset reveal status
       await _firestore
           .collection(_isRevealedCollection)
