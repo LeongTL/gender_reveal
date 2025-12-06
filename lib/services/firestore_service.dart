@@ -1,16 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:rxdart/rxdart.dart';
 import 'encryption_service.dart';
 
 /// Service class for managing Firebase Firestore operations
-/// 
+///
 /// This service handles all Firebase interactions for the gender reveal
 /// voting system, including reading vote counts and updating reveal status.
 class FirestoreService {
   /// Firestore instance for database operations
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   /// Collection references
   static const String _usersCollection = 'users';
   static const String _boyVotesCollection = 'boyVotes';
@@ -22,7 +23,7 @@ class FirestoreService {
   static const String _babyGenderDocumentId = 'z_baby_document';
 
   /// Creates or updates user document in Firestore
-  /// 
+  ///
   /// This method stores/updates user information in the users collection.
   /// Structure: users/{userId} -> { userId, userName }
   static Future<void> createOrUpdateUser(String userId, String userName) async {
@@ -64,7 +65,7 @@ class FirestoreService {
   ///
   /// The data structure contains:
   /// - boyVotes: int (number of documents in boyVotes collection)
-  /// - girlVotes: int (number of documents in girlVotes collection) 
+  /// - girlVotes: int (number of documents in girlVotes collection)
   /// - isRevealed: bool (whether the gender has been revealed)
   static Stream<Map<String, dynamic>> getGenderRevealStream() {
     // Combine three streams for real-time updates
@@ -112,14 +113,14 @@ class FirestoreService {
       },
     );
   }
-  
+
   /// Triggers the gender reveal by updating the isRevealed flag
-  /// 
+  ///
   /// This method sets the 'isRevealed' field to true in Firestore,
   /// which will notify all connected clients to show the final result.
-  /// 
+  ///
   /// Returns a [Future<void>] that completes when the update is successful.
-  /// 
+  ///
   /// Throws [FirebaseException] if the update fails.
   static Future<void> triggerReveal() async {
     try {
@@ -134,25 +135,25 @@ class FirestoreService {
       );
     }
   }
-  
+
   /// Initializes the gender reveal document with default values
-  /// 
+  ///
   /// This method should be called once to set up the initial document
-  /// structure in Firestore. It creates the document with reveal status 
+  /// structure in Firestore. It creates the document with reveal status
   /// set to false. Vote counts are calculated from collection lengths.
-  /// 
+  ///
   /// Parameters:
   /// - [mergeIfExists]: Whether to merge with existing document (default: true)
-  /// 
+  ///
   /// Returns a [Future<void>] that completes when initialization is successful.
-  static Future<void> initializeGenderRevealDocument({bool mergeIfExists = true}) async {
+  static Future<void> initializeGenderRevealDocument({
+    bool mergeIfExists = true,
+  }) async {
     try {
       await _firestore
           .collection(_isRevealedCollection)
           .doc(_isRevealedDocumentId)
-          .set({
-        'isRevealed': false,
-      }, SetOptions(merge: mergeIfExists));
+          .set({'isRevealed': false}, SetOptions(merge: mergeIfExists));
     } catch (e) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
@@ -160,12 +161,12 @@ class FirestoreService {
       );
     }
   }
-  
+
   /// Resets the gender reveal event to initial state
-  /// 
+  ///
   /// This method clears all votes from boyVotes and girlVotes collections
   /// and sets isRevealed to false. Useful for testing or starting a new event.
-  /// 
+  ///
   /// Returns a [Future<void>] that completes when reset is successful.
   static Future<void> resetGenderRevealEvent() async {
     try {
@@ -197,12 +198,12 @@ class FirestoreService {
       );
     }
   }
-  
+
   /// Gets the current vote counts and reveal status
-  /// 
+  ///
   /// Returns a [Future<Map<String, dynamic>>] containing the current state
   /// of the gender reveal event with counts from collection lengths.
-  /// 
+  ///
   /// Throws [FirebaseException] if reading fails.
   static Future<Map<String, dynamic>> getCurrentVoteData() async {
     try {
@@ -219,7 +220,7 @@ class FirestoreService {
           .collection(_isRevealedCollection)
           .doc(_isRevealedDocumentId)
           .get();
-      
+
       final isRevealed = revealDoc.exists
           ? (revealDoc.data()?['isRevealed'] ?? false)
           : false;
@@ -497,7 +498,7 @@ class FirestoreService {
           .collection(_babyGenderCollection)
           .doc(_babyGenderDocumentId)
           .get();
-      
+
       if (!doc.exists) return null;
 
       final data = doc.data()!;
@@ -644,6 +645,339 @@ class FirestoreService {
         plugin: 'cloud_firestore',
         message: 'Failed to update ESP32 IP: $e',
       );
+    }
+  }
+
+  /// ========================================
+  /// ESP32 Command Queue Methods (Cloud Relay)
+  /// ========================================
+
+  /// Collection name for ESP32 commands
+  static const String _esp32CommandsCollection = 'esp32_commands';
+
+  /// Adds a command to the ESP32 command queue in Firestore
+  ///
+  /// This method writes commands to Firestore instead of sending HTTP requests.
+  /// The ESP32 will poll Firestore and execute pending commands.
+  ///
+  /// [command] - Command type: 'set_theme', 'set_color', 'run_effect', 'turn_off'
+  /// [parameters] - Map of command-specific parameters
+  /// [deviceId] - Optional device identifier for multi-device setups
+  /// [createdBy] - Optional user ID who created the command
+  static Future<String> addESP32Command({
+    required String command,
+    required Map<String, dynamic> parameters,
+    String? deviceId,
+    String? createdBy,
+  }) async {
+    try {
+      final docRef = await _firestore.collection(_esp32CommandsCollection).add({
+        'command': command,
+        'parameters': parameters,
+        'status': 'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+        if (deviceId != null) 'deviceId': deviceId,
+        if (createdBy != null) 'createdBy': createdBy,
+      });
+
+      print('✅ ESP32 command added to Firestore: $command (${docRef.id})');
+      return docRef.id;
+    } catch (e) {
+      print('❌ Error adding ESP32 command to Firestore: $e');
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to add ESP32 command: $e',
+      );
+    }
+  }
+
+  /// Sends a blinking effect command to ESP32 via Realtime Database
+  ///
+  /// [duration] - Duration in milliseconds (e.g., 10000 for 10 seconds)
+  /// [brightness] - Brightness value (0-255)
+  static Future<String> sendBlinkingCommand(
+    int duration,
+    int brightness,
+  ) async {
+    try {
+      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
+      await ref.set({
+        'command': 'set_blinking',
+        'parameters': {'duration': duration, 'brightness': brightness},
+        'timestamp': ServerValue.timestamp,
+        'createdBy': FirebaseAuth.instance.currentUser?.uid,
+      });
+      print(
+        '✅ Blinking command sent to Realtime DB: ${duration}ms (${ref.key})',
+      );
+
+      return ref.key!;
+    } catch (e) {
+      print('❌ Error sending blinking command: $e');
+      rethrow;
+    }
+  }
+
+  /// Sends a theme command to ESP32 via Realtime Database (instant push!)
+  ///
+  /// [theme] - Theme name ('boy', 'girl', 'neutral', 'rainbow')
+  /// [brightness] - Brightness value (0-255)
+  /// [permanent] - If true, theme will not auto-return to rainbow
+  static Future<String> sendThemeCommand(
+    String theme,
+    int brightness, {
+    bool permanent = false,
+  }) async {
+    try {
+      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
+      await ref.set({
+        'command': 'set_theme',
+        'parameters': {
+          'theme': theme,
+          'brightness': brightness,
+          'permanent': permanent,
+        },
+        'timestamp': ServerValue.timestamp,
+        'createdBy': FirebaseAuth.instance.currentUser?.uid,
+      });
+      print(
+        '✅ Theme command sent to Realtime DB: $theme (${ref.key})${permanent ? ' [PERMANENT]' : ''}',
+      );
+
+      return ref.key!;
+    } catch (e) {
+      print('❌ Error sending theme command: $e');
+      rethrow;
+    }
+  }
+
+  /// Sends a custom color command to ESP32 via Realtime Database (instant push!)
+  ///
+  /// [red] - Red value (0-255)
+  /// [green] - Green value (0-255)
+  /// [blue] - Blue value (0-255)
+  /// [brightness] - LED brightness (0-255)
+  static Future<String> sendColorCommand(
+    int red,
+    int green,
+    int blue,
+    int brightness,
+  ) async {
+    try {
+      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
+      await ref.set({
+        'command': 'set_color',
+        'parameters': {
+          'red': red,
+          'green': green,
+          'blue': blue,
+          'brightness': brightness,
+        },
+        'timestamp': ServerValue.timestamp,
+        'createdBy': FirebaseAuth.instance.currentUser?.uid,
+      });
+      print(
+        '✅ Color command sent to Realtime DB: RGB($red, $green, $blue) (${ref.key})',
+      );
+
+      return ref.key!;
+    } catch (e) {
+      print('❌ Error sending color command: $e');
+      rethrow;
+    }
+  }
+
+  /// Sends an effect command to ESP32 via Realtime Database (instant push!)
+  ///
+  /// [effect] - Effect name: 'rainbow', 'sparkle', 'comet', 'running', 'fade', 'chase'
+  /// [speed] - Effect speed (1-100)
+  /// [brightness] - LED brightness (0-255)
+  static Future<String> sendEffectCommand(
+    String effect,
+    int speed,
+    int brightness, {
+    int? duration, // Optional duration in milliseconds (for running effects)
+  }) async {
+    try {
+      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
+
+      // Build parameters map
+      final parameters = {
+        'effect': effect,
+        'speed': speed,
+        'brightness': brightness,
+      };
+
+      // Add duration if specified (for running effects like comet)
+      if (duration != null) {
+        parameters['duration'] = duration;
+      }
+
+      await ref.set({
+        'command': 'run_effect',
+        'parameters': parameters,
+        'timestamp': ServerValue.timestamp,
+        'createdBy': FirebaseAuth.instance.currentUser?.uid,
+      });
+      print('✅ Effect command sent to Realtime DB: $effect (${ref.key})');
+
+      return ref.key!;
+    } catch (e) {
+      print('❌ Error sending effect command: $e');
+      rethrow;
+    }
+  }
+
+  /// Sends a turn off command to ESP32 via Realtime Database (instant push!)
+  static Future<String> sendTurnOffCommand() async {
+    try {
+      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
+      await ref.set({
+        'command': 'turn_off',
+        'parameters': {},
+        'timestamp': ServerValue.timestamp,
+        'createdBy': FirebaseAuth.instance.currentUser?.uid,
+      });
+      print('✅ Turn off command sent to Realtime DB (${ref.key})');
+
+      return ref.key!;
+    } catch (e) {
+      print('❌ Error sending turn off command: $e');
+      rethrow;
+    }
+  }
+
+  // Command cleanup is now handled by ESP32 (no status field needed)
+  // ESP32 deletes commands after execution completes
+
+  /// Gets all pending commands from the command queue
+  static Future<List<Map<String, dynamic>>> getPendingCommands() async {
+    try {
+      final snapshot = await _firestore
+          .collection(_esp32CommandsCollection)
+          .where('status', isEqualTo: 'pending')
+          .orderBy('timestamp')
+          .get();
+
+      return snapshot.docs.map((doc) {
+        return {'id': doc.id, ...doc.data()};
+      }).toList();
+    } catch (e) {
+      print('❌ Error getting pending commands: $e');
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to get pending commands: $e',
+      );
+    }
+  }
+
+  /// Updates the status of a command
+  ///
+  /// [commandId] - Document ID of the command
+  /// [status] - New status: 'pending', 'processing', 'completed', 'failed'
+  /// [errorMessage] - Optional error message if status is 'failed'
+  static Future<void> updateCommandStatus(
+    String commandId,
+    String status, {
+    String? errorMessage,
+  }) async {
+    try {
+      await _firestore
+          .collection(_esp32CommandsCollection)
+          .doc(commandId)
+          .update({
+            'status': status,
+            'processedAt': FieldValue.serverTimestamp(),
+            if (errorMessage != null) 'errorMessage': errorMessage,
+          });
+
+      print('✅ Command status updated: $commandId -> $status');
+    } catch (e) {
+      print('❌ Error updating command status: $e');
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to update command status: $e',
+      );
+    }
+  }
+
+  /// Deletes old completed/failed commands from the queue
+  ///
+  /// [olderThanHours] - Delete commands older than this many hours (default: 24)
+  static Future<int> cleanupOldCommands({int olderThanHours = 24}) async {
+    try {
+      final cutoffTime = DateTime.now().subtract(
+        Duration(hours: olderThanHours),
+      );
+
+      final snapshot = await _firestore
+          .collection(_esp32CommandsCollection)
+          .where('status', whereIn: ['completed', 'failed'])
+          .where('timestamp', isLessThan: Timestamp.fromDate(cutoffTime))
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+      print('✅ Cleaned up ${snapshot.docs.length} old commands');
+      return snapshot.docs.length;
+    } catch (e) {
+      print('❌ Error cleaning up old commands: $e');
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        message: 'Failed to cleanup old commands: $e',
+      );
+    }
+  }
+
+  /// Cleans up old commands from Realtime Database (completed or older than 1 minute)
+  static Future<void> cleanupRealtimeCommands() async {
+    try {
+      final ref = FirebaseDatabase.instance.ref('esp32_commands');
+      final snapshot = await ref.get();
+
+      if (!snapshot.exists) {
+        print('ℹ️ No commands to clean up');
+        return;
+      }
+
+      final commands = snapshot.value as Map<dynamic, dynamic>?;
+      if (commands == null) return;
+
+      int deletedCount = 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      for (final entry in commands.entries) {
+        final key = entry.key as String;
+
+        // Skip non-command fields (like 'status' at parent level)
+        if (!key.startsWith('-')) continue;
+
+        final data = entry.value as Map<dynamic, dynamic>?;
+        if (data == null) continue;
+
+        final status = data['status'] as String?;
+        final timestamp = data['timestamp'] as int?;
+
+        // Delete if completed or older than 1 minute
+        final shouldDelete =
+            status == 'completed' ||
+            status == 'processing' ||
+            (timestamp != null && (now - timestamp) > 60000);
+
+        if (shouldDelete) {
+          await ref.child(key).remove();
+          deletedCount++;
+          print('🧹 Deleted old command: $key (status: $status)');
+        }
+      }
+
+      print('✅ Cleanup complete: $deletedCount commands deleted');
+    } catch (e) {
+      print('❌ Error cleaning up commands: $e');
     }
   }
 }
