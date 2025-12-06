@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:http/http.dart' as http;
 import 'package:rxdart/rxdart.dart';
 import 'encryption_service.dart';
 
@@ -707,23 +709,10 @@ class FirestoreService {
     int duration,
     int brightness,
   ) async {
-    try {
-      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
-      await ref.set({
-        'command': 'set_blinking',
-        'parameters': {'duration': duration, 'brightness': brightness},
-        'timestamp': ServerValue.timestamp,
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-      });
-      print(
-        '✅ Blinking command sent to Realtime DB: ${duration}ms (${ref.key})',
-      );
-
-      return ref.key!;
-    } catch (e) {
-      print('❌ Error sending blinking command: $e');
-      rethrow;
-    }
+    return _sendCommandViaRestAPI(
+      'set_blinking',
+      {'duration': duration, 'brightness': brightness},
+    );
   }
 
   /// Sends a theme command to ESP32 via Realtime Database (instant push!)
@@ -736,25 +725,64 @@ class FirestoreService {
     int brightness, {
     bool permanent = false,
   }) async {
+    return _sendCommandViaRestAPI(
+      'set_theme',
+      {
+        'theme': theme,
+        'brightness': brightness,
+        'permanent': permanent,
+      },
+    );
+  }
+
+  /// Helper method to send commands via REST API (web-compatible)
+  static Future<String> _sendCommandViaRestAPI(
+    String command,
+    Map<String, dynamic> parameters,
+  ) async {
     try {
-      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
-      await ref.set({
-        'command': 'set_theme',
-        'parameters': {
-          'theme': theme,
-          'brightness': brightness,
-          'permanent': permanent,
-        },
-        'timestamp': ServerValue.timestamp,
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-      });
-      print(
-        '✅ Theme command sent to Realtime DB: $theme (${ref.key})${permanent ? ' [PERMANENT]' : ''}',
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('User must be authenticated');
+      }
+
+      final dbUrl = FirebaseDatabase.instance.app.options.databaseURL;
+      if (dbUrl == null) {
+        throw Exception('Database URL not configured');
+      }
+
+      // Generate unique key
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final randomSuffix = (timestamp % 100000).toString().padLeft(5, '0');
+      final key = '-Web${timestamp}${randomSuffix}';
+
+      final commandData = {
+        'command': command,
+        'parameters': parameters,
+        'timestamp': timestamp,
+        'createdBy': currentUser.uid,
+      };
+
+      // Get auth token
+      final idToken = await currentUser.getIdToken();
+
+      // Send via REST API
+      final url = Uri.parse('$dbUrl/esp32_commands/$key.json?auth=$idToken');
+
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(commandData),
       );
 
-      return ref.key!;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Command sent via REST API: $command ($key)');
+        return key;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
     } catch (e) {
-      print('❌ Error sending theme command: $e');
+      print('❌ Error sending command via REST API: $e');
       rethrow;
     }
   }
@@ -771,28 +799,15 @@ class FirestoreService {
     int blue,
     int brightness,
   ) async {
-    try {
-      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
-      await ref.set({
-        'command': 'set_color',
-        'parameters': {
-          'red': red,
-          'green': green,
-          'blue': blue,
-          'brightness': brightness,
-        },
-        'timestamp': ServerValue.timestamp,
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-      });
-      print(
-        '✅ Color command sent to Realtime DB: RGB($red, $green, $blue) (${ref.key})',
-      );
-
-      return ref.key!;
-    } catch (e) {
-      print('❌ Error sending color command: $e');
-      rethrow;
-    }
+    return _sendCommandViaRestAPI(
+      'set_color',
+      {
+        'red': red,
+        'green': green,
+        'blue': blue,
+        'brightness': brightness,
+      },
+    );
   }
 
   /// Sends an effect command to ESP32 via Realtime Database (instant push!)
@@ -806,53 +821,24 @@ class FirestoreService {
     int brightness, {
     int? duration, // Optional duration in milliseconds (for running effects)
   }) async {
-    try {
-      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
+    // Build parameters map
+    final parameters = {
+      'effect': effect,
+      'speed': speed,
+      'brightness': brightness,
+    };
 
-      // Build parameters map
-      final parameters = {
-        'effect': effect,
-        'speed': speed,
-        'brightness': brightness,
-      };
-
-      // Add duration if specified (for running effects like comet)
-      if (duration != null) {
-        parameters['duration'] = duration;
-      }
-
-      await ref.set({
-        'command': 'run_effect',
-        'parameters': parameters,
-        'timestamp': ServerValue.timestamp,
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-      });
-      print('✅ Effect command sent to Realtime DB: $effect (${ref.key})');
-
-      return ref.key!;
-    } catch (e) {
-      print('❌ Error sending effect command: $e');
-      rethrow;
+    // Add duration if specified (for running effects like comet)
+    if (duration != null) {
+      parameters['duration'] = duration;
     }
+
+    return _sendCommandViaRestAPI('run_effect', parameters);
   }
 
   /// Sends a turn off command to ESP32 via Realtime Database (instant push!)
   static Future<String> sendTurnOffCommand() async {
-    try {
-      final ref = FirebaseDatabase.instance.ref('esp32_commands').push();
-      await ref.set({
-        'command': 'turn_off',
-        'parameters': {},
-        'timestamp': ServerValue.timestamp,
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-      });
-      print('✅ Turn off command sent to Realtime DB (${ref.key})');
-
-      return ref.key!;
-    } catch (e) {
-      print('❌ Error sending turn off command: $e');
-      rethrow;
-    }
+    return _sendCommandViaRestAPI('turn_off', {});
   }
 
   // Command cleanup is now handled by ESP32 (no status field needed)
@@ -942,33 +928,51 @@ class FirestoreService {
   }
 
   /// Cleans up old commands from Realtime Database (completed or older than 1 minute)
+  /// Uses REST API for web compatibility
   static Future<void> cleanupRealtimeCommands() async {
     try {
-      final ref = FirebaseDatabase.instance.ref('esp32_commands');
-      final snapshot = await ref.get();
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        print('❌ Cannot cleanup: User not authenticated');
+        return;
+      }
 
-      if (!snapshot.exists) {
+      final dbUrl = FirebaseDatabase.instance.app.options.databaseURL;
+      if (dbUrl == null) {
+        throw Exception('Database URL not configured');
+      }
+
+      // Get auth token
+      final idToken = await currentUser.getIdToken();
+
+      // Get all commands
+      final url = Uri.parse('$dbUrl/esp32_commands.json?auth=$idToken');
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+
+      final data = json.decode(response.body);
+      if (data == null || data is! Map) {
         print('ℹ️ No commands to clean up');
         return;
       }
 
-      final commands = snapshot.value as Map<dynamic, dynamic>?;
-      if (commands == null) return;
-
       int deletedCount = 0;
       final now = DateTime.now().millisecondsSinceEpoch;
 
-      for (final entry in commands.entries) {
+      for (final entry in data.entries) {
         final key = entry.key as String;
 
-        // Skip non-command fields (like 'status' at parent level)
+        // Skip non-command fields
         if (!key.startsWith('-')) continue;
 
-        final data = entry.value as Map<dynamic, dynamic>?;
-        if (data == null) continue;
+        final commandData = entry.value as Map<String, dynamic>?;
+        if (commandData == null) continue;
 
-        final status = data['status'] as String?;
-        final timestamp = data['timestamp'] as int?;
+        final status = commandData['status'] as String?;
+        final timestamp = commandData['timestamp'] as int?;
 
         // Delete if completed or older than 1 minute
         final shouldDelete =
@@ -977,7 +981,8 @@ class FirestoreService {
             (timestamp != null && (now - timestamp) > 60000);
 
         if (shouldDelete) {
-          await ref.child(key).remove();
+          final deleteUrl = Uri.parse('$dbUrl/esp32_commands/$key.json?auth=$idToken');
+          await http.delete(deleteUrl);
           deletedCount++;
           print('🧹 Deleted old command: $key (status: $status)');
         }
