@@ -1847,7 +1847,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.asset(
-            'assets/images/qr-code.png',
+            'assets/images/qr-code-v2.png',
             width: 84,
             height: 84,
             fit: BoxFit.cover,
