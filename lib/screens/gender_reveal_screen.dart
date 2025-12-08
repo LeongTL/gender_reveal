@@ -37,6 +37,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Whether the gender has been revealed
   bool isRevealed = false;
 
+  /// Whether the countdown dialog is currently showing
+  bool _isCountdownShowing = false;
+
   /// Stream subscription for Firestore updates
   late Stream<Map<String, dynamic>> _firestoreStream;
 
@@ -256,13 +259,24 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Shows a 10-second countdown animation in the center of the screen
   Future<void> _showCountdownAnimation(String gender) async {
+    // Prevent multiple dialogs from stacking
+    if (_isCountdownShowing) return;
+    
+    setState(() {
+      _isCountdownShowing = true;
+    });
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _CountdownDialog(gender: gender);
       },
-    );
+    ).then((_) {
+      setState(() {
+        _isCountdownShowing = false;
+      });
+    });
   }
 
   /// Resets the voting event (useful for testing or new events)
@@ -1290,6 +1304,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Builds the main content area with voting results
   Widget _buildMainContent() {
+    // Hide content when countdown is showing
+    if (_isCountdownShowing) {
+      return const SizedBox.shrink();
+    }
+    
     return Center(
       child: StreamBuilder<Map<String, dynamic>>(
         stream: _firestoreStream,
@@ -1826,6 +1845,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Builds QR code widget positioned in bottom right corner
   Widget _buildQRCode() {
+    // Hide QR code when countdown is showing
+    if (_isCountdownShowing) {
+      return const SizedBox.shrink();
+    }
+    
     return Positioned(
       bottom: 20,
       right: 20,
