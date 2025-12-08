@@ -85,7 +85,7 @@ flutter:
   assets:
     - assets/video/video1.mp4
     - assets/video/video2.mp4
-    - assets/images/qr-code.png
+    - assets/images/qr-code-v2.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
