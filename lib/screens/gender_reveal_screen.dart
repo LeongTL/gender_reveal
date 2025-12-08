@@ -37,6 +37,9 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   /// Whether the gender has been revealed
   bool isRevealed = false;
 
+  /// Whether the countdown dialog is currently showing
+  bool _isCountdownShowing = false;
+
   /// Stream subscription for Firestore updates
   late Stream<Map<String, dynamic>> _firestoreStream;
 
@@ -256,13 +259,34 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Shows a 10-second countdown animation in the center of the screen
   Future<void> _showCountdownAnimation(String gender) async {
-    return showDialog<void>(
+    // Prevent multiple dialogs from stacking
+    if (_isCountdownShowing) return;
+    
+    setState(() {
+      _isCountdownShowing = true;
+    });
+
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _CountdownDialog(gender: gender);
       },
     );
+    
+    // Dialog is closed - immediately update UI to show reveal result
+    // Use a post-frame callback to ensure the dialog is fully dismissed before updating state
+    if (mounted) {
+      setState(() {
+        _isCountdownShowing = false;
+      });
+      // Force an immediate rebuild to ensure content reappears
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
   }
 
   /// Resets the voting event (useful for testing or new events)
@@ -1332,6 +1356,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             isRevealed = newIsRevealed;
           }
 
+          // Hide content when countdown is showing
+          if (_isCountdownShowing) {
+            return const SizedBox.shrink();
+          }
+
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1826,6 +1855,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Builds QR code widget positioned in bottom right corner
   Widget _buildQRCode() {
+    // Hide QR code when countdown is showing
+    if (_isCountdownShowing) {
+      return const SizedBox.shrink();
+    }
+    
     return Positioned(
       bottom: 20,
       right: 20,
