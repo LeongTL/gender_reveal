@@ -201,6 +201,15 @@ class FirestoreService {
           .collection(_isRevealedCollection)
           .doc(_isRevealedDocumentId)
           .set({'isRevealed': false});
+
+      // Delete all pending commands from Realtime Database
+      print('🗑️ Deleting all Realtime Database commands...');
+      await deleteAllRealtimeCommands();
+
+      // Send run_reset command to ESP32 (it will handle returning to rainbow mode)
+      print('🔄 Sending run_reset command to ESP32...');
+      await sendResetCommand();
+      print('✅ Reset command sent successfully');
     } catch (e) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
@@ -841,6 +850,12 @@ class FirestoreService {
     return _sendCommandViaRestAPI('turn_off', {});
   }
 
+  /// Sends a reset command to ESP32 via Realtime Database (instant push!)
+  /// This command stops all effects and returns ESP32 to rainbow mode
+  static Future<String> sendResetCommand() async {
+    return _sendCommandViaRestAPI('run_reset', {});
+  }
+
   // Command cleanup is now handled by ESP32 (no status field needed)
   // ESP32 deletes commands after execution completes
 
@@ -991,6 +1006,39 @@ class FirestoreService {
       print('✅ Cleanup complete: $deletedCount commands deleted');
     } catch (e) {
       print('❌ Error cleaning up commands: $e');
+    }
+  }
+
+  /// Deletes ALL commands from Realtime Database (for reset event)
+  /// Uses REST API for web compatibility
+  static Future<void> deleteAllRealtimeCommands() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        print('❌ Cannot delete commands: User not authenticated');
+        return;
+      }
+
+      final dbUrl = FirebaseDatabase.instance.app.options.databaseURL;
+      if (dbUrl == null) {
+        throw Exception('Database URL not configured');
+      }
+
+      // Get auth token
+      final idToken = await currentUser.getIdToken();
+
+      // Delete the entire esp32_commands node (this deletes all commands at once)
+      final deleteUrl = Uri.parse('$dbUrl/esp32_commands.json?auth=$idToken');
+      final response = await http.delete(deleteUrl);
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('✅ All Realtime Database commands deleted successfully');
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ Error deleting all commands: $e');
+      // Don't rethrow - we want reset to continue even if command deletion fails
     }
   }
 }
