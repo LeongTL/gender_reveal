@@ -214,32 +214,13 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       return;
     }
 
-    // Password is correct, start ESP32 animation FIRST, then show countdown
-    if (mounted) {
-      // CRITICAL: Start ESP32 reveal animation BEFORE showing countdown
-      // This ensures LED flashing starts immediately when countdown appears
-      _sendRevealAnswerTheme(); // Fire and forget (no await)
-
-      try {
-        // Fetch baby gender from database
-        final babyGenderData = await FirestoreService.getBabyGender();
-        final gender =
-            babyGenderData?['baby_gender']?.toString().toLowerCase() ??
-            'unknown';
-
-        // Show countdown with gender information
-        await _showCountdownAnimation(gender);
-      } catch (e) {
-        debugPrint('Error fetching gender for countdown: $e');
-        // Show countdown with unknown gender as fallback
-        await _showCountdownAnimation('unknown');
-      }
-    }
-
-    // After countdown, proceed with reveal
+    // Password is correct! Trigger reveal IMMEDIATELY so vote screen updates
     try {
+      // 1. Trigger reveal in Firestore FIRST (vote screen will update immediately!)
       await FirestoreService.triggerReveal();
+      debugPrint('✅ Reveal triggered - vote screen should update now!');
     } catch (e) {
+      debugPrint('❌ Error triggering reveal: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -247,6 +228,28 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+      return;
+    }
+
+    // 2. Start ESP32 animation (flashing lights)
+    if (mounted) {
+      _sendRevealAnswerTheme(); // Fire and forget (no await)
+
+      try {
+        // 3. Fetch baby gender from database
+        final babyGenderData = await FirestoreService.getBabyGender();
+        final gender =
+            babyGenderData?['baby_gender']?.toString().toLowerCase() ??
+            'unknown';
+
+        // 4. Show countdown with gender information
+        // Vote screen is ALREADY showing the result by now!
+        await _showCountdownAnimation(gender);
+      } catch (e) {
+        debugPrint('Error fetching gender for countdown: $e');
+        // Show countdown with unknown gender as fallback
+        await _showCountdownAnimation('unknown');
       }
     }
   }
