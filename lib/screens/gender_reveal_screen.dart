@@ -266,17 +266,27 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       _isCountdownShowing = true;
     });
 
-    return showDialog<void>(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _CountdownDialog(gender: gender);
       },
-    ).then((_) {
+    );
+    
+    // Dialog is closed - immediately update UI to show reveal result
+    // Use a post-frame callback to ensure the dialog is fully dismissed before updating state
+    if (mounted) {
       setState(() {
         _isCountdownShowing = false;
       });
-    });
+      // Force an immediate rebuild to ensure content reappears
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
   }
 
   /// Resets the voting event (useful for testing or new events)
@@ -1304,11 +1314,6 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
 
   /// Builds the main content area with voting results
   Widget _buildMainContent() {
-    // Hide content when countdown is showing
-    if (_isCountdownShowing) {
-      return const SizedBox.shrink();
-    }
-    
     return Center(
       child: StreamBuilder<Map<String, dynamic>>(
         stream: _firestoreStream,
@@ -1349,6 +1354,11 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
             boyVotes = newBoyVotes;
             girlVotes = newGirlVotes;
             isRevealed = newIsRevealed;
+          }
+
+          // Hide content when countdown is showing
+          if (_isCountdownShowing) {
+            return const SizedBox.shrink();
           }
 
           return Column(
