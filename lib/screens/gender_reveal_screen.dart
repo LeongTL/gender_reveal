@@ -892,7 +892,8 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   @override
   void dispose() {
     _videoController.dispose();
-    _stopRevealFlashAnimation();
+    // Cancel timers without calling setState during disposal
+    _revealFlashTimer?.cancel();
     _colorCommandTimer?.cancel();
     super.dispose();
   }
@@ -1440,7 +1441,10 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 _buildEnhancedAnimalBar(
                   height: boyBarHeight,
                   color: const Color(0xFF6BB6FF),
-                  animal: _buildEmojiAnimal('🐘', const Color(0xFF6BB6FF)),
+                  animal: _buildImageAnimal(
+                    'assets/images/nick.jpeg',
+                    const Color(0xFF6BB6FF),
+                  ),
                   votes: boyVotes,
                   isLeft: true,
                   maxHeight: maxBarHeight + baseHeight,
@@ -1451,7 +1455,10 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
                 _buildEnhancedAnimalBar(
                   height: girlBarHeight,
                   color: const Color(0xFFFF8FA3),
-                  animal: _buildEmojiAnimal('🐰', const Color(0xFFFF8FA3)),
+                  animal: _buildImageAnimal(
+                    'assets/images/judy.jpg',
+                    const Color(0xFFFF8FA3),
+                  ),
                   votes: girlVotes,
                   isLeft: false,
                   maxHeight: maxBarHeight + baseHeight,
@@ -2153,7 +2160,7 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
   }
 
   /// Builds a cute emoji animal with enhanced styling and sparkle effects
-  Widget _buildEmojiAnimal(String emoji, Color backgroundColor) {
+  Widget _buildImageAnimal(String imagePath, Color backgroundColor) {
     return Container(
       width: 80,
       height: 60,
@@ -2179,14 +2186,25 @@ class _GenderRevealScreenState extends State<GenderRevealScreen> {
       ),
       child: Stack(
         children: [
-          // Main emoji
+          // Main image
           Center(
-            child: Text(
-              emoji,
-              style: const TextStyle(fontSize: 36, height: 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  imagePath,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
           ),
-          // Sparkle effects around the emoji
+          // Sparkle effects around the image
           Positioned(
             top: 8,
             right: 12,
