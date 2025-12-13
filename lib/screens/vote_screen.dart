@@ -1087,7 +1087,21 @@ class _VoteScreenState extends State<VoteScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('🐘', style: TextStyle(fontSize: 48)),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/nick.jpeg',
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               'BOY',
@@ -1140,7 +1154,21 @@ class _VoteScreenState extends State<VoteScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('🐰', style: TextStyle(fontSize: 48)),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/judy.jpg',
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               'GIRL',
@@ -1190,7 +1218,21 @@ class _VoteScreenState extends State<VoteScreen> {
             children: [
               Column(
                 children: [
-                  const Text('🐘', style: TextStyle(fontSize: 24)),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/nick.jpeg',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     '$boyVotes',
@@ -1213,7 +1255,21 @@ class _VoteScreenState extends State<VoteScreen> {
               Container(width: 2, height: 50, color: Colors.grey[300]),
               Column(
                 children: [
-                  const Text('🐰', style: TextStyle(fontSize: 24)),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/judy.jpg',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     '$girlVotes',
